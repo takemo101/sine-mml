@@ -110,4 +110,27 @@ mod tests {
         assert!(validate_bpm("301").is_err());
         assert!(validate_bpm("abc").is_err());
     }
+
+    #[test]
+    fn test_play_args_conflict() {
+        // MML only -> OK
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE"]);
+        assert!(result.is_ok());
+
+        // History ID only -> OK
+        let result = Cli::try_parse_from(&["sine-mml", "play", "--history-id", "1"]);
+        assert!(result.is_ok());
+
+        // Both -> Error
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--history-id", "1"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.kind() == clap::error::ErrorKind::ArgumentConflict);
+
+        // Neither -> Error
+        let result = Cli::try_parse_from(&["sine-mml", "play"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.kind() == clap::error::ErrorKind::MissingRequiredArgument);
+    }
 }
