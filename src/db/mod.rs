@@ -1,9 +1,13 @@
-use rusqlite::Connection;
+use chrono::{DateTime, Utc};
+use rusqlite::{Connection, params};
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error;
 
 pub mod schema;
+pub mod history;
+
+pub use history::{HistoryEntry, Waveform};
 
 #[derive(Error, Debug)]
 pub enum DbError {
@@ -15,6 +19,18 @@ pub enum DbError {
 
     #[error("DB-E003: Failed to initialize schema: {0}")]
     SchemaInit(String),
+
+    #[error("DB-E004: Failed to save history: {0}")]
+    SaveFailed(String),
+
+    #[error("DB-E005: Failed to fetch history: {0}")]
+    FetchFailed(String),
+
+    #[error("DB-E006: History not found with id: {0}")]
+    NotFound(i64),
+
+    #[error("Invalid waveform type: {0}")]
+    InvalidWaveform(String),
 
     #[error("Database error: {0}")]
     Rusqlite(#[from] rusqlite::Error),
@@ -54,9 +70,129 @@ impl Database {
         Ok(Database { conn })
     }
 
+    #[cfg(test)]
+    pub fn open_in_memory() -> Result<Self, DbError> {
+        let conn = Connection::open_in_memory()?;
+        schema::initialize(&conn).map_err(|e| DbError::SchemaInit(e.to_string()))?;
+        Ok(Database { conn })
+    }
+
     #[must_use]
     pub fn get_connection(&self) -> &Connection {
         &self.conn
+    }
+
+    /// Saves a history entry to the database.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbError` if:
+    /// - Validation fails (MML length, volume range, BPM range).
+    /// - Database insertion fails.
+    pub fn save(&self, entry: &HistoryEntry) -> Result<i64, DbError> {
+        if entry.mml.is_empty() {
+            return Err(DbError::SaveFailed("MML cannot be empty".to_string()));
+        }
+        if entry.mml.len() > 10000 {
+            return Err(DbError::SaveFailed("MML too long (max 10000 chars)".to_string()));
+        }
+        if entry.volume < 0.0 || entry.volume > 1.0 {
+            return Err(DbError::SaveFailed("Volume must be between 0.0 and 1.0".to_string()));
+        }
+        if entry.bpm < 30 || entry.bpm > 300 {
+            return Err(DbError::SaveFailed("BPM must be between 30 and 300".to_string()));
+        }
+
+        self.conn.execute(
+            "INSERT INTO history (mml, waveform, volume, bpm, created_at) VALUES (?, ?, ?, ?, ?)",
+            params![
+                entry.mml,
+                entry.waveform.as_str(),
+                entry.volume,
+                entry.bpm,
+                entry.created_at.to_rfc3339()
+            ],
+        )?;
+
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// Lists history entries from the database.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbError` if database query fails.
+    pub fn list(&self, limit: Option<usize>) -> Result<Vec<HistoryEntry>, DbError> {
+        let sql = if let Some(l) = limit {
+            format!("SELECT id, mml, waveform, volume, bpm, created_at FROM history ORDER BY created_at DESC LIMIT {l}")
+        } else {
+            "SELECT id, mml, waveform, volume, bpm, created_at FROM history ORDER BY created_at DESC".to_string()
+        };
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map([], |row| {
+            let waveform_str: String = row.get(2)?;
+            let waveform = waveform_str.parse::<Waveform>()
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e)))?;
+            
+            let created_at_str: String = row.get(5)?;
+            let created_at = DateTime::parse_from_rfc3339(&created_at_str)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(e)))?
+                .with_timezone(&Utc);
+
+            Ok(HistoryEntry {
+                id: Some(row.get(0)?),
+                mml: row.get(1)?,
+                waveform,
+                volume: row.get(3)?,
+                bpm: row.get(4)?,
+                created_at,
+            })
+        })?;
+
+        let mut entries = Vec::new();
+        for row in rows {
+            entries.push(row?);
+        }
+
+        Ok(entries)
+    }
+
+    /// Retrieves a history entry by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbError` if:
+    /// - Entry with the specified ID is not found.
+    /// - Database query fails.
+    pub fn get_by_id(&self, id: i64) -> Result<HistoryEntry, DbError> {
+        let mut stmt = self.conn.prepare("SELECT id, mml, waveform, volume, bpm, created_at FROM history WHERE id = ?")?;
+        
+        let result = stmt.query_row(params![id], |row| {
+            let waveform_str: String = row.get(2)?;
+            let waveform = waveform_str.parse::<Waveform>()
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e)))?;
+            
+            let created_at_str: String = row.get(5)?;
+            let created_at = DateTime::parse_from_rfc3339(&created_at_str)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(e)))?
+                .with_timezone(&Utc);
+
+            Ok(HistoryEntry {
+                id: Some(row.get(0)?),
+                mml: row.get(1)?,
+                waveform,
+                volume: row.get(3)?,
+                bpm: row.get(4)?,
+                created_at,
+            })
+        });
+
+        match result {
+            Ok(entry) => Ok(entry),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Err(DbError::NotFound(id)),
+            Err(e) => Err(DbError::Rusqlite(e)),
+        }
     }
 }
 
@@ -99,5 +235,84 @@ mod tests {
             .query_row("PRAGMA journal_mode", [], |row| row.get(0))
             .unwrap();
         assert_eq!(mode.to_uppercase(), "WAL");
+    }
+
+    #[test]
+    fn test_save_and_get_by_id() {
+        let db = Database::open_in_memory().unwrap();
+        let entry = HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120);
+        let id = db.save(&entry).unwrap();
+        
+        let fetched = db.get_by_id(id).unwrap();
+        assert_eq!(fetched.mml, "CDE");
+        assert_eq!(fetched.waveform, Waveform::Sine);
+        assert_eq!(fetched.volume, 0.5);
+        assert_eq!(fetched.bpm, 120);
+        assert_eq!(fetched.id, Some(id));
+    }
+
+    #[test]
+    fn test_list_returns_descending_order() {
+        let db = Database::open_in_memory().unwrap();
+        let entry1 = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 120);
+        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130);
+        
+        db.save(&entry1).unwrap();
+        // Ensure timestamp difference
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        db.save(&entry2).unwrap();
+
+        let list = db.list(None).unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].mml, "D"); // Newest first
+        assert_eq!(list[1].mml, "C");
+    }
+
+    #[test]
+    fn test_list_with_limit() {
+        let db = Database::open_in_memory().unwrap();
+        for i in 0..5 {
+            let entry = HistoryEntry::new(format!("MML{}", i), Waveform::Sine, 0.5, 120);
+            db.save(&entry).unwrap();
+        }
+
+        let list = db.list(Some(3)).unwrap();
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0].mml, "MML4");
+    }
+
+    #[test]
+    fn test_get_by_id_not_found() {
+        let db = Database::open_in_memory().unwrap();
+        let result = db.get_by_id(999);
+        assert!(matches!(result, Err(DbError::NotFound(999))));
+    }
+
+    #[test]
+    fn test_save_validation_mml_empty() {
+        let db = Database::open_in_memory().unwrap();
+        let entry = HistoryEntry::new("".to_string(), Waveform::Sine, 0.5, 120);
+        let result = db.save(&entry);
+        assert!(result.is_err());
+        match result {
+            Err(DbError::SaveFailed(msg)) => assert!(msg.contains("MML cannot be empty")),
+            _ => panic!("Expected SaveFailed error"),
+        }
+    }
+
+    #[test]
+    fn test_save_validation_volume_out_of_range() {
+        let db = Database::open_in_memory().unwrap();
+        let entry = HistoryEntry::new("C".to_string(), Waveform::Sine, 1.5, 120);
+        let result = db.save(&entry);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_save_validation_bpm_out_of_range() {
+        let db = Database::open_in_memory().unwrap();
+        let entry = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 500);
+        let result = db.save(&entry);
+        assert!(result.is_err());
     }
 }
