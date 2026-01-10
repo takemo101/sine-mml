@@ -40,7 +40,7 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     
     let mut synth = audio::synthesizer::Synthesizer::new(sample_rate, volume_u8, waveform_type);
     let buffer = synth.synthesize(&ast)
-        .map_err(|e| anyhow::anyhow!(e))
+        .map_err(|e| anyhow::anyhow!("{}", e))
         .context("音声合成に失敗しました")?;
 
     // 4. 再生
