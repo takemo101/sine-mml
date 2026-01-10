@@ -3,6 +3,17 @@ use crate::cli::args::{PlayArgs, Waveform};
 use crate::{mml, audio, db};
 use crate::cli::output;
 
+/// playサブコマンドのハンドラー
+///
+/// # Errors
+///
+/// Returns `anyhow::Result` if:
+/// - Arguments are invalid (e.g. both MML and history_id are missing)
+/// - MML parsing fails
+/// - Audio synthesis fails
+/// - Audio playback fails
+/// - History saving fails
+#[allow(clippy::needless_pass_by_value)]
 pub fn play_handler(args: PlayArgs) -> Result<()> {
     // 1. 引数の検証とMML取得
     let (mml_string, should_save) = match (&args.mml, args.history_id) {
@@ -10,7 +21,7 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
         (None, Some(id)) => {
             let db = db::Database::init()?;
             let entry = db.get_by_id(id)
-                .with_context(|| format!("[CLI-E002] 履歴ID {} が見つかりません", id))?;
+                .with_context(|| format!("[CLI-E002] 履歴ID {id} が見つかりません"))?;
             (entry.mml, false)
         }
         (None, None) => {
@@ -23,7 +34,7 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
 
     // 2. MML解析
     let ast = mml::parse(&mml_string)
-        .map_err(|e| anyhow::anyhow!("MML parse error: {:?}", e))?; // TODO: Better error formatting
+        .map_err(|e| anyhow::anyhow!("MML parse error: {e:?}"))?;
 
     // 3. 音声合成
     let waveform_type = match args.waveform {
@@ -33,6 +44,7 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     };
 
     // volume: f32 (0.0-1.0) -> u8 (0-100)
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let volume_u8 = (args.volume * 100.0) as u8;
     
     // sample_rate: 44100 (fixed for now)
@@ -40,7 +52,7 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     
     let mut synth = audio::synthesizer::Synthesizer::new(sample_rate, volume_u8, waveform_type);
     let buffer = synth.synthesize(&ast)
-        .map_err(|e| anyhow::anyhow!("{}", e))
+        .map_err(|e| anyhow::anyhow!("{e}"))
         .context("音声合成に失敗しました")?;
 
     // 4. 再生
@@ -68,17 +80,20 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
             Waveform::Square => db::history::Waveform::Square,
         };
         
+        #[allow(clippy::cast_possible_truncation)]
+        let bpm_u16 = args.bpm as u16;
+
         let entry = db::HistoryEntry::new(
             mml_string.clone(),
             db_waveform,
             args.volume,
-            args.bpm as u16,
+            bpm_u16,
         );
         
         let history_id = db.save(&entry)
             .context("履歴の保存に失敗しました")?;
             
-        output::success(&format!("✓ 再生完了（履歴ID: {}）", history_id));
+        output::success(&format!("✓ 再生完了（履歴ID: {history_id}）"));
     } else {
         output::success("✓ 再生完了");
     }
