@@ -11,6 +11,10 @@ keywords = ["mml", "music", "synthesizer", "audio", "cli"]
 categories = ["command-line-utilities", "multimedia::audio"]
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5.0"
+rusqlite = { version = "0.38", features = ["bundled"] }
+thiserror = "1.0"
 
 [dev-dependencies]
 
