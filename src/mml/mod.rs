@@ -1,6 +1,8 @@
 mod ast;
+pub mod error;
 
 pub use ast::*;
+pub use error::ParseError;
 
 use std::iter::Peekable;
 use std::str::Chars;
