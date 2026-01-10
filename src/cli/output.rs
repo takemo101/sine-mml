@@ -54,7 +54,62 @@ pub fn success(msg: &str) {
     println!("{}", style(msg).green());
 }
 
-#[allow(dead_code)] // Might be used later
 pub fn info(msg: &str) {
     println!("{}", style(msg).cyan());
+}
+
+/// エラーメッセージを赤色で表示
+pub fn error(msg: &str) {
+    eprintln!("{}", style(msg).red().bold());
+}
+
+/// 警告メッセージを黄色で表示
+pub fn warning(msg: &str) {
+    eprintln!("{}", style(msg).yellow());
+}
+
+/// エクスポート用プログレスバーを作成
+///
+/// # Errors
+/// Returns `anyhow::Result` if progress bar template is invalid.
+pub fn create_export_progress(total_samples: u64) -> Result<ProgressBar> {
+    let pb = ProgressBar::new(total_samples);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} samples {msg}")?
+            .progress_chars("#>-"),
+    );
+    pb.enable_steady_tick(Duration::from_millis(16)); // 60fps
+    Ok(pb)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_export_progress_returns_valid_progressbar() {
+        let pb = create_export_progress(100);
+        assert!(pb.is_ok());
+    }
+
+    #[test]
+    fn test_success_does_not_panic() {
+        success("test success");
+    }
+
+    #[test]
+    fn test_error_does_not_panic() {
+        error("test error");
+    }
+
+    #[test]
+    fn test_warning_does_not_panic() {
+        warning("test warning");
+    }
+
+    #[test]
+    fn test_info_does_not_panic() {
+        info("test info");
+    }
 }
