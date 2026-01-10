@@ -61,6 +61,11 @@ pub enum Waveform {
 }
 
 // Validation functions
+
+/// Validates that the volume is between 0.0 and 1.0.
+///
+/// # Errors
+/// Returns an error if the input string cannot be parsed as an f32 or if the value is out of range.
 pub fn validate_volume(v: &str) -> Result<f32, String> {
     let val: f32 = v.parse().map_err(|_| "Invalid number".to_string())?;
     if (0.0..=1.0).contains(&val) {
@@ -70,6 +75,10 @@ pub fn validate_volume(v: &str) -> Result<f32, String> {
     }
 }
 
+/// Validates that the BPM is between 30 and 300.
+///
+/// # Errors
+/// Returns an error if the input string cannot be parsed as a u32 or if the value is out of range.
 pub fn validate_bpm(v: &str) -> Result<u32, String> {
     let val: u32 = v.parse().map_err(|_| "Invalid number".to_string())?;
     if (30..=300).contains(&val) {
