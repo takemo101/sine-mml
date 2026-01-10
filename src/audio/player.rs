@@ -15,6 +15,10 @@ pub struct AudioPlayer {
 }
 
 impl AudioPlayer {
+    /// Creates a new `AudioPlayer`.
+    ///
+    /// # Errors
+    /// Returns `AudioError` if no device is found or stream creation fails.
     pub fn new() -> Result<Self, AudioError> {
         let host = cpal::default_host();
         let device = host
@@ -32,6 +36,10 @@ impl AudioPlayer {
         })
     }
 
+    /// Starts audio playback.
+    ///
+    /// # Errors
+    /// Returns `AudioError` if stream creation or playback fails.
     pub fn play(&mut self, samples: &[f32], loop_enabled: bool) -> Result<(), AudioError> {
         // Stop current playback if any
         self.stop();
@@ -45,7 +53,7 @@ impl AudioPlayer {
         let state_clone = state.clone();
         let channels = self.config.channels as usize;
 
-        let err_fn = |err| eprintln!("Audio stream error: {}", err);
+        let err_fn = |err| eprintln!("Audio stream error: {err}");
 
         let stream = self.device.build_output_stream(
             &self.config,
@@ -58,12 +66,12 @@ impl AudioPlayer {
                             s
                         } else if state.loop_enabled {
                              state.position = 0;
-                             if !state.samples.is_empty() {
+                             if state.samples.is_empty() {
+                                 0.0
+                             } else {
                                  let s = state.samples[0];
                                  state.position = 1;
                                  s
-                             } else {
-                                 0.0
                              }
                         } else {
                             0.0
@@ -89,6 +97,7 @@ impl AudioPlayer {
         self.stream = None; // Dropping the stream stops it
     }
 
+    #[must_use]
     pub fn is_playing(&self) -> bool {
         self.stream.is_some()
     }
