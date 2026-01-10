@@ -1,6 +1,7 @@
 # OpenCode workflow
 node_modules/
 bun.lockb
+.serena/
 
 # Rust/Cargo
 /target/
