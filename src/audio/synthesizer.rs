@@ -1,5 +1,5 @@
-use crate::mml::{Mml, Command, Note};
-use crate::audio::waveform::{WaveformType, create_node, midi_to_frequency};
+use crate::audio::waveform::{create_node, midi_to_frequency, WaveformType};
+use crate::mml::{Command, Mml, Note};
 use std::error::Error;
 
 pub struct Synthesizer {
@@ -34,7 +34,11 @@ impl Synthesizer {
             match command {
                 Command::Note(note) => {
                     let note_samples = self.generate_note_samples(
-                        note, octave, bpm, default_length, current_velocity
+                        note,
+                        octave,
+                        bpm,
+                        default_length,
+                        current_velocity,
                     );
                     samples.extend(note_samples);
                 }
@@ -53,25 +57,29 @@ impl Synthesizer {
         Ok(samples)
     }
 
-    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     fn generate_note_samples(
-        &self, 
-        note: &Note, 
-        octave: u8, 
-        bpm: u16, 
+        &self,
+        note: &Note,
+        octave: u8,
+        bpm: u16,
         default_length: u8,
-        velocity: u8
+        velocity: u8,
     ) -> Vec<f32> {
         let midi_note = note.to_midi_note(octave);
         let frequency = midi_to_frequency(midi_note);
         let duration = note.duration_in_seconds(bpm, default_length);
         let num_samples = (f64::from(duration) * f64::from(self.sample_rate)) as usize;
-        
+
         let mut audio_node = create_node(self.waveform_type, frequency);
         audio_node.set_sample_rate(f64::from(self.sample_rate));
 
         let master_gain = (f32::from(self.volume) / 100.0) * (f32::from(velocity) / 100.0);
-        
+
         let mut samples = Vec::with_capacity(num_samples);
         for _ in 0..num_samples {
             let sample = audio_node.get_mono() as f32;
@@ -83,25 +91,31 @@ impl Synthesizer {
         samples
     }
 
-    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     fn apply_envelope(&self, samples: &mut [f32]) {
         let fade_duration = 0.005; // 5ms fade
         let fade_samples = (fade_duration * f64::from(self.sample_rate)) as usize;
         let len = samples.len();
 
-        if len == 0 { return; }
+        if len == 0 {
+            return;
+        }
 
         if len < fade_samples * 2 {
-             let half = len / 2;
-             for (i, sample) in samples.iter_mut().enumerate().take(half) {
-                 let gain = i as f32 / half as f32;
-                 *sample *= gain;
-             }
-             for (i, sample) in samples.iter_mut().rev().enumerate().take(half) {
-                 let gain = i as f32 / half as f32;
-                 *sample *= gain;
-             }
-             return;
+            let half = len / 2;
+            for (i, sample) in samples.iter_mut().enumerate().take(half) {
+                let gain = i as f32 / half as f32;
+                *sample *= gain;
+            }
+            for (i, sample) in samples.iter_mut().rev().enumerate().take(half) {
+                let gain = i as f32 / half as f32;
+                *sample *= gain;
+            }
+            return;
         }
 
         for (i, sample) in samples.iter_mut().enumerate().take(fade_samples) {
@@ -117,14 +131,18 @@ impl Synthesizer {
     }
 
     #[must_use]
-    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     pub fn generate_click_samples(&self, _bpm: u16) -> Vec<f32> {
         let frequency = 1000.0;
         let duration = 0.05; // 50ms
         let num_samples = (duration * f64::from(self.sample_rate)) as usize;
         let mut audio_node = create_node(WaveformType::Sine, frequency);
         audio_node.set_sample_rate(f64::from(self.sample_rate));
-        
+
         let mut samples = Vec::with_capacity(num_samples);
         for i in 0..num_samples {
             let mut sample = audio_node.get_mono() as f32;
@@ -141,7 +159,7 @@ impl Synthesizer {
 mod tests {
     use super::*;
     use crate::audio::waveform::WaveformType;
-    use crate::mml::{Mml, Command, Note, Pitch, Accidental, Tempo};
+    use crate::mml::{Accidental, Command, Mml, Note, Pitch, Tempo};
 
     #[test]
     fn test_synthesizer_creation() {
@@ -161,21 +179,18 @@ mod tests {
             dots: 0,
         };
         let mml = Mml {
-            commands: vec![
-                Command::Tempo(Tempo { value: 120 }),
-                Command::Note(note)
-            ],
+            commands: vec![Command::Tempo(Tempo { value: 120 }), Command::Note(note)],
         };
-        
+
         let samples = synth.synthesize(&mml).expect("Synthesize failed");
         // Quarter note at 120 BPM is 0.5s. 44100 * 0.5 = 22050.
         assert!((samples.len() as i32 - 22050).abs() <= 1);
-        
+
         // Check if samples are not all zero (sine wave)
         let has_signal = samples.iter().any(|&x| x.abs() > 0.001);
         assert!(has_signal, "Samples should contain audio signal");
     }
-    
+
     #[test]
     fn test_click_generation() {
         let synth = Synthesizer::new(44100, 100, WaveformType::Sine);

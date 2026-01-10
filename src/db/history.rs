@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use crate::db::DbError;
+use chrono::{DateTime, Utc};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
