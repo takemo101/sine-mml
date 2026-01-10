@@ -25,13 +25,13 @@ graph TD
 
     subgraph "Logic Layer"
         Parser[MML Parser]
-        Sync[Synthesizer (fundsp)]
-        Player[Audio Player (cpal)]
+        Sync["Synthesizer (fundsp)"]
+        Player["Audio Player (cpal)"]
     end
 
     subgraph "Data Layer"
-        DB[(SQLite / rusqlite)]
-        Storage[WAV Exporter (hound)]
+        DB[("SQLite / rusqlite")]
+        Storage["WAV Exporter (hound)"]
     end
 
     CLI --> Parser
