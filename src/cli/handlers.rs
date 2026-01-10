@@ -1,7 +1,8 @@
-use crate::cli::args::{PlayArgs, Waveform};
+use crate::cli::args::{ExportArgs, PlayArgs, Waveform};
 use crate::cli::output;
 use crate::{audio, db, mml};
 use anyhow::{bail, Context, Result};
+use comfy_table::Table;
 
 /// playサブコマンドのハンドラー
 ///
@@ -97,6 +98,99 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     Ok(())
 }
 
+/// historyサブコマンドのハンドラー
+///
+/// # Errors
+/// Returns `anyhow::Result` if DB operations fail.
+pub fn history_handler() -> Result<()> {
+    let db = db::Database::init()?;
+    history_logic(&db)
+}
+
+fn history_logic(db: &db::Database) -> Result<()> {
+    let history = db.list(Some(20)).context("履歴の取得に失敗しました")?;
+
+    if history.is_empty() {
+        println!("履歴がありません");
+        return Ok(());
+    }
+
+    let mut table = Table::new();
+    table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .set_header(vec!["ID", "MML", "Waveform", "Volume", "BPM", "Created At"]);
+
+    for entry in history {
+        table.add_row(vec![
+            entry.id.map_or(String::new(), |id| id.to_string()),
+            truncate_mml(&entry.mml, 50),
+            format!("{:?}", entry.waveform),
+            format!("{:.1}", entry.volume),
+            entry.bpm.to_string(),
+            entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        ]);
+    }
+
+    println!("{table}");
+    Ok(())
+}
+
+/// exportサブコマンドのハンドラー
+///
+/// # Errors
+/// Returns `anyhow::Result` if:
+/// - History ID not found
+/// - Path traversal detected
+/// - WAV export fails
+#[allow(clippy::needless_pass_by_value)]
+pub fn export_handler(args: ExportArgs) -> Result<()> {
+    if args.output.contains("..") {
+        bail!("Path traversal detected: '..' is not allowed in output path");
+    }
+    let db = db::Database::init()?;
+    export_logic(&db, &args)
+}
+
+fn export_logic(db: &db::Database, args: &ExportArgs) -> Result<()> {
+    let entry = db
+        .get_by_id(args.history_id)
+        .context(format!("履歴ID {} が見つかりません", args.history_id))?;
+
+    let ast = mml::parse(&entry.mml).map_err(|e| anyhow::anyhow!("MML parse error: {e:?}"))?;
+
+    let waveform_type = match entry.waveform {
+        db::Waveform::Sine => audio::waveform::WaveformType::Sine,
+        db::Waveform::Sawtooth => audio::waveform::WaveformType::Sawtooth,
+        db::Waveform::Square => audio::waveform::WaveformType::Square,
+    };
+
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let volume_u8 = (entry.volume * 100.0) as u8;
+
+    let sample_rate = 44100;
+    let mut synth = audio::synthesizer::Synthesizer::new(sample_rate, volume_u8, waveform_type);
+    let buffer = synth
+        .synthesize(&ast)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("音声合成に失敗しました")?;
+
+    let output_path = std::path::Path::new(&args.output);
+    audio::exporter::export_wav(&buffer, output_path)
+        .context("WAVファイルの書き出しに失敗しました")?;
+
+    output::success(&format!("✓ エクスポート完了: {}", args.output));
+
+    Ok(())
+}
+
+fn truncate_mml(mml: &str, max_len: usize) -> String {
+    if mml.len() <= max_len {
+        mml.to_string()
+    } else {
+        format!("{}...", &mml[..max_len - 3])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,7 +223,79 @@ mod tests {
             metronome: false,
         };
 
-        // コンテナ環境でDBエラー等が出る可能性があるが、ロジック自体がパニックしないことを確認
         let _ = play_handler(args);
+    }
+
+    #[test]
+    fn test_truncate_mml() {
+        assert_eq!(truncate_mml("short", 10), "short");
+        assert_eq!(truncate_mml("exactly10.", 10), "exactly10.");
+        assert_eq!(truncate_mml("long string", 5), "lo...");
+        assert_eq!(truncate_mml("long string", 6), "lon...");
+    }
+
+    #[test]
+    fn test_export_handler_path_traversal() {
+        let args = ExportArgs {
+            history_id: 1,
+            output: "../unsafe.wav".to_string(),
+        };
+        let result = export_handler(args);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Path traversal detected"));
+    }
+
+    #[test]
+    fn test_history_logic_empty() {
+        let db = db::Database::open_in_memory().unwrap();
+        assert!(history_logic(&db).is_ok());
+    }
+
+    #[test]
+    fn test_history_logic_with_data() {
+        let db = db::Database::open_in_memory().unwrap();
+        let entry = db::HistoryEntry::new("CDE".to_string(), db::Waveform::Sine, 0.5, 120);
+        db.save(&entry).unwrap();
+        assert!(history_logic(&db).is_ok());
+    }
+
+    #[test]
+    fn test_export_logic_not_found() {
+        let db = db::Database::open_in_memory().unwrap();
+        let args = ExportArgs {
+            history_id: 999,
+            output: "test.wav".to_string(),
+        };
+        let result = export_logic(&db, &args);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("履歴ID 999 が見つかりません"));
+    }
+
+    #[test]
+    fn test_export_logic_success() {
+        let db = db::Database::open_in_memory().unwrap();
+        let entry = db::HistoryEntry::new("C".to_string(), db::Waveform::Sine, 0.5, 120);
+        let id = db.save(&entry).unwrap();
+
+        let dir = std::env::temp_dir();
+        let path = dir.join("test_export.wav");
+        let path_str = path.to_string_lossy().to_string();
+
+        let args = ExportArgs {
+            history_id: id,
+            output: path_str,
+        };
+
+        let result = export_logic(&db, &args);
+        assert!(result.is_ok(), "export_logic failed: {:?}", result.err());
+        assert!(path.exists());
+
+        let _ = std::fs::remove_file(path);
     }
 }
