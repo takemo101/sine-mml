@@ -8,7 +8,7 @@ use crate::cli::output;
 /// # Errors
 ///
 /// Returns `anyhow::Result` if:
-/// - Arguments are invalid (e.g. both MML and history_id are missing)
+/// - Arguments are invalid (e.g. both MML and `history_id` are missing)
 /// - MML parsing fails
 /// - Audio synthesis fails
 /// - Audio playback fails
