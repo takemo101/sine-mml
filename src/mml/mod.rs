@@ -2,6 +2,9 @@ mod ast;
 
 pub use ast::*;
 
+pub mod parser;
+pub use parser::*;
+
 use std::iter::Peekable;
 use std::str::Chars;
 
