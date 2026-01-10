@@ -1,6 +1,6 @@
-use std::path::Path;
 use crate::audio::AudioError;
 use hound::WavSpec;
+use std::path::Path;
 
 /// Export PCM samples to a WAV file.
 ///
@@ -47,7 +47,7 @@ mod tests {
     fn test_export_wav_success() {
         let dir = std::env::temp_dir();
         let path = dir.join("test_sine_wave.wav");
-        
+
         // Create 1 second of 440Hz sine wave at 44.1kHz
         let sample_rate = 44100;
         let frequency = 440.0;
@@ -73,7 +73,7 @@ mod tests {
         // Basic check for first few samples to ensure they aren't all zero/garbage
         // First sample of sine(0) is 0
         assert_eq!(read_samples[0], 0);
-        
+
         // Cleanup
         let _ = std::fs::remove_file(path);
     }

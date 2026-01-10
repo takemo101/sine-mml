@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error;
 
-pub mod schema;
 pub mod history;
+pub mod schema;
 
 pub use history::{HistoryEntry, Waveform};
 
@@ -94,13 +94,19 @@ impl Database {
             return Err(DbError::SaveFailed("MML cannot be empty".to_string()));
         }
         if entry.mml.len() > 10000 {
-            return Err(DbError::SaveFailed("MML too long (max 10000 chars)".to_string()));
+            return Err(DbError::SaveFailed(
+                "MML too long (max 10000 chars)".to_string(),
+            ));
         }
         if entry.volume < 0.0 || entry.volume > 1.0 {
-            return Err(DbError::SaveFailed("Volume must be between 0.0 and 1.0".to_string()));
+            return Err(DbError::SaveFailed(
+                "Volume must be between 0.0 and 1.0".to_string(),
+            ));
         }
         if entry.bpm < 30 || entry.bpm > 300 {
-            return Err(DbError::SaveFailed("BPM must be between 30 and 300".to_string()));
+            return Err(DbError::SaveFailed(
+                "BPM must be between 30 and 300".to_string(),
+            ));
         }
 
         self.conn.execute(
@@ -132,12 +138,23 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql)?;
         let rows = stmt.query_map([], |row| {
             let waveform_str: String = row.get(2)?;
-            let waveform = waveform_str.parse::<Waveform>()
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e)))?;
-            
+            let waveform = waveform_str.parse::<Waveform>().map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    2,
+                    rusqlite::types::Type::Text,
+                    Box::new(e),
+                )
+            })?;
+
             let created_at_str: String = row.get(5)?;
             let created_at = DateTime::parse_from_rfc3339(&created_at_str)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(e)))?
+                .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        5,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?
                 .with_timezone(&Utc);
 
             Ok(HistoryEntry {
@@ -166,16 +183,29 @@ impl Database {
     /// - Entry with the specified ID is not found.
     /// - Database query fails.
     pub fn get_by_id(&self, id: i64) -> Result<HistoryEntry, DbError> {
-        let mut stmt = self.conn.prepare("SELECT id, mml, waveform, volume, bpm, created_at FROM history WHERE id = ?")?;
-        
+        let mut stmt = self.conn.prepare(
+            "SELECT id, mml, waveform, volume, bpm, created_at FROM history WHERE id = ?",
+        )?;
+
         let result = stmt.query_row(params![id], |row| {
             let waveform_str: String = row.get(2)?;
-            let waveform = waveform_str.parse::<Waveform>()
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e)))?;
-            
+            let waveform = waveform_str.parse::<Waveform>().map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    2,
+                    rusqlite::types::Type::Text,
+                    Box::new(e),
+                )
+            })?;
+
             let created_at_str: String = row.get(5)?;
             let created_at = DateTime::parse_from_rfc3339(&created_at_str)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(e)))?
+                .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        5,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?
                 .with_timezone(&Utc);
 
             Ok(HistoryEntry {
@@ -242,7 +272,7 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         let entry = HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120);
         let id = db.save(&entry).unwrap();
-        
+
         let fetched = db.get_by_id(id).unwrap();
         assert_eq!(fetched.mml, "CDE");
         assert_eq!(fetched.waveform, Waveform::Sine);
@@ -256,7 +286,7 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         let entry1 = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 120);
         let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130);
-        
+
         db.save(&entry1).unwrap();
         // Ensure timestamp difference
         std::thread::sleep(std::time::Duration::from_millis(10));

@@ -59,7 +59,7 @@ mod tests {
         // C4 = 60 -> 261.63 Hz
         assert!((midi_to_frequency(60) - 261.62558).abs() < 1e-3);
     }
-    
+
     #[test]
     fn test_create_node() {
         // Just verify it doesn't panic

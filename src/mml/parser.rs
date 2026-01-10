@@ -57,7 +57,7 @@ impl Parser {
     fn parse_note(&mut self) -> Result<Note, ParseError> {
         let token_with_pos = self.advance(); // Consume pitch
         let Token::Pitch(pitch) = token_with_pos.token else {
-             unreachable!("parse_note called without Pitch token")
+            unreachable!("parse_note called without Pitch token")
         };
 
         let accidental = if matches!(self.peek().token, Token::Sharp | Token::Flat) {
@@ -109,15 +109,12 @@ impl Parser {
             dots += 1;
         }
 
-        Ok(Rest {
-            duration,
-            dots,
-        })
+        Ok(Rest { duration, dots })
     }
 
     fn parse_octave(&mut self) -> Result<Octave, ParseError> {
         self.advance(); // Consume Octave
-        // Range 1-8 verified, safe to cast to u8
+                        // Range 1-8 verified, safe to cast to u8
         #[allow(clippy::cast_possible_truncation)]
         let value = self.consume_number_in_range(1, 8)? as u8;
         Ok(Octave { value })
@@ -131,7 +128,7 @@ impl Parser {
 
     fn parse_length(&mut self) -> Result<DefaultLength, ParseError> {
         self.advance(); // Consume Length
-        // Range 1-64 verified, safe to cast to u8
+                        // Range 1-64 verified, safe to cast to u8
         #[allow(clippy::cast_possible_truncation)]
         let value = self.consume_number_in_range(1, 64)? as u8;
         Ok(DefaultLength { value })
@@ -139,7 +136,7 @@ impl Parser {
 
     fn parse_volume(&mut self) -> Result<Volume, ParseError> {
         self.advance(); // Consume Volume
-        // Range 0-15 verified, safe to cast to u8
+                        // Range 0-15 verified, safe to cast to u8
         #[allow(clippy::cast_possible_truncation)]
         let value = self.consume_number_in_range(0, 15)? as u8;
         Ok(Volume { value })
@@ -184,7 +181,7 @@ impl Parser {
 
     fn previous(&self) -> &TokenWithPos {
         if self.current == 0 {
-             &self.tokens[0]
+            &self.tokens[0]
         } else {
             &self.tokens[self.current - 1]
         }
@@ -212,15 +209,15 @@ pub fn parse(input: &str) -> Result<Mml, ParseError> {
         // If input is whitespace only, tokens will contain only EOF
         return Ok(Mml { commands: vec![] });
     }
-    
+
     let mut parser = Parser::new(tokens);
     parser.parse()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::Pitch;
+    use super::*;
 
     #[test]
     fn parse_single_note() {
@@ -334,7 +331,7 @@ mod tests {
         let err = parse("").unwrap_err();
         assert!(matches!(err, ParseError::EmptyInput));
     }
-    
+
     #[test]
     fn parse_whitespace_only() {
         let mml = parse("   ").unwrap();
