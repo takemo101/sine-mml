@@ -17,6 +17,7 @@ rusqlite = { version = "0.38", features = ["bundled"] }
 thiserror = "1.0"
 fundsp = "0.18"
 cpal = "0.15"
+hound = "3.5"
 
 [dev-dependencies]
 
