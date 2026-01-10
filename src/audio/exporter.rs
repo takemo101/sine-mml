@@ -11,6 +11,10 @@ use hound::WavSpec;
 /// # Returns
 /// * `Ok(())` if successful
 /// * `Err(AudioError)` if an error occurs
+///
+/// # Errors
+/// * Returns `AudioError::WavWriteError` if WAV encoding fails.
+/// * Returns `AudioError::IoError` if file creation fails.
 pub fn export_wav<P: AsRef<Path>>(samples: &[f32], path: P) -> Result<(), AudioError> {
     let spec = WavSpec {
         channels: 1,
@@ -23,8 +27,10 @@ pub fn export_wav<P: AsRef<Path>>(samples: &[f32], path: P) -> Result<(), AudioE
 
     for &sample in samples {
         // f32 -> i16 conversion: scale by 32767.0 and clamp to i16 range
-        let amplitude = i16::MAX as f32;
-        let s = (sample * amplitude).clamp(i16::MIN as f32, i16::MAX as f32);
+        let amplitude = f32::from(i16::MAX);
+        let s = (sample * amplitude).clamp(f32::from(i16::MIN), f32::from(i16::MAX));
+
+        #[allow(clippy::cast_possible_truncation)]
         writer.write_sample(s as i16)?;
     }
 
