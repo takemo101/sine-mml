@@ -3,8 +3,15 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 use console::style;
 
+/// 再生プログレスを表示し、再生時間分待機する
+///
+/// # Errors
+///
+/// Returns `anyhow::Result` if progress bar template is invalid.
 pub fn display_play_progress(_mml: &str, buffer: &[f32], is_loop: bool) -> Result<()> {
     let sample_rate = 44100.0;
+    
+    #[allow(clippy::cast_precision_loss)]
     let duration_secs = buffer.len() as f64 / sample_rate;
     let duration = Duration::from_secs_f64(duration_secs);
 
@@ -13,8 +20,6 @@ pub fn display_play_progress(_mml: &str, buffer: &[f32], is_loop: bool) -> Resul
         // In a real CLI, we might handle Ctrl+C here or just block.
         // For this implementation, we assume the user will interrupt the process.
         // We block here to keep the process alive while audio plays in background thread (if cpal worked).
-        // Since we are not actually playing audio in this environment (likely), 
-        // we just simulate a wait loop.
         loop {
             std::thread::sleep(Duration::from_millis(100));
         }
@@ -24,12 +29,12 @@ pub fn display_play_progress(_mml: &str, buffer: &[f32], is_loop: bool) -> Resul
             .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {msg}")?
             .progress_chars("#>-"));
         
-        pb.set_message(format!("{:.1}s", duration_secs));
+        pb.set_message(format!("{duration_secs:.1}s"));
         
         // Simulate progress synchronized with duration
         let steps = 100;
         let step_duration = duration / steps;
-        let step_inc = buffer.len() as u64 / steps as u64;
+        let step_inc = buffer.len() as u64 / u64::from(steps);
 
         for _ in 0..steps {
             std::thread::sleep(step_duration);
@@ -44,6 +49,7 @@ pub fn success(msg: &str) {
     println!("{}", style(msg).green());
 }
 
+#[allow(dead_code)] // Might be used later
 pub fn info(msg: &str) {
     println!("{}", style(msg).cyan());
 }
