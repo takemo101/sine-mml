@@ -1,0 +1,117 @@
+# 🎵 sine-mml
+
+[![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://github.com/takemo101/sine-mml/actions/workflows/ci.yml/badge.svg)](https://github.com/takemo101/sine-mml/actions)
+
+**sine-mml** は、**MML（Music Macro Language）** を使って音楽を合成・再生するためのコマンドラインツールです。Rustで構築された高性能なオーディオエンジンにより、MML文字列から様々な波形で音楽を再生できます。
+
+---
+
+## 🚀 概要
+
+レトロゲーム音楽が好きな方、ゲーム開発者、音声合成に興味がある方に最適なツールです：
+
+- **再生**: MML文字列をターミナルから直接再生
+- **波形選択**: サイン波、ノコギリ波、矩形波から選択
+- **履歴管理**: SQLiteによる永続的な演奏履歴の管理
+- **エクスポート**: 演奏をWAVファイルとして出力
+
+---
+
+## 🛠 インストール
+
+### 必要条件
+
+- **Rustツールチェーン**: [Rust](https://www.rust-lang.org/tools/install) がインストールされていること（edition 2021）
+- **オーディオ依存関係（Linuxのみ）**:
+  ```bash
+  sudo apt-get install libasound2-dev
+  ```
+
+### ソースからビルド
+
+```bash
+git clone https://github.com/takemo101/sine-mml.git
+cd sine-mml
+cargo install --path .
+```
+
+---
+
+## 🎹 クイックスタート
+
+```bash
+# Cメジャースケールを再生
+sine-mml play "CDEFGAB >C"
+
+# ノコギリ波でテンポ180で再生
+sine-mml play "T180 L8 O5 C D E F G A B >C" --waveform sawtooth
+
+# 履歴を表示
+sine-mml history
+
+# 履歴から再生（ID指定）
+sine-mml play --history-id 1
+
+# 履歴をWAVファイルとしてエクスポート
+sine-mml export --history-id 1 --output my_music.wav
+```
+
+詳細な使い方は [USAGE.md](USAGE.md) を参照してください。
+
+---
+
+## 📖 コマンド一覧
+
+| コマンド | 説明 |
+|---------|------|
+| `play` | MML文字列を合成・再生 |
+| `history` | 演奏履歴を表示 |
+| `export` | 履歴をWAVファイルとして出力 |
+
+---
+
+## 🎼 MML構文リファレンス
+
+| コマンド | 説明 | 例 |
+|---------|------|-----|
+| `CDEFGAB` | 基本音符 | `C D E` |
+| `#` / `+` | シャープ | `C#` / `C+` |
+| `-` / `b` | フラット | `Eb` / `E-` |
+| `R` | 休符 | `R4`（4分休符） |
+| `On` | オクターブ設定（1-8） | `O5` |
+| `>` / `<` | オクターブ上げ/下げ | `>C` |
+| `Ln` | デフォルト音長（1-64） | `L8`（8分音符） |
+| `Tn` | テンポ（30-300 BPM） | `T140` |
+| `Vn` | 音量（0-15） | `V10` |
+| `.` | 付点音符 | `C4.` |
+
+**例**: `"T120 L4 O4 CDE R G >C"` - 120BPMで4分音符のC, D, E、休符、G、次のオクターブのCを再生
+
+---
+
+## 🛠 開発
+
+```bash
+# ビルド
+cargo build
+
+# テスト
+cargo test
+
+# Lint
+cargo clippy -- -D warnings
+```
+
+開発に参加したい方は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+
+---
+
+## 📄 ライセンス
+
+このプロジェクトは **MITライセンス** の下で公開されています。詳細は [LICENSE](LICENSE) ファイルを参照してください。
+
+---
+
+作成者: **[takemo101](https://github.com/takemo101)** 🎶
