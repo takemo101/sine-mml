@@ -47,13 +47,13 @@ pub struct PlayArgs {
 #[derive(Args, Debug)]
 pub struct ExportArgs {
     #[arg(long)]
-    pub history_id: Option<i64>,
+    pub history_id: i64,
     
     #[arg(short, long)]
     pub output: String,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug, PartialEq)]
 pub enum Waveform {
     Sine,
     Sawtooth,
@@ -125,12 +125,39 @@ mod tests {
         let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--history-id", "1"]);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(err.kind() == clap::error::ErrorKind::ArgumentConflict);
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
 
         // Neither -> Error
         let result = Cli::try_parse_from(&["sine-mml", "play"]);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(err.kind() == clap::error::ErrorKind::MissingRequiredArgument);
+        assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
+    }
+    
+    #[test]
+    fn test_waveform_parsing() {
+        // Default is sine
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.waveform, Waveform::Sine);
+
+        // Explicit sawtooth
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--waveform", "sawtooth"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.waveform, Waveform::Sawtooth);
+        
+        // Short flag -w
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "-w", "square"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.waveform, Waveform::Square);
     }
 }
