@@ -24,11 +24,11 @@ impl AudioPlayer {
         let device = host
             .default_output_device()
             .ok_or(AudioError::DeviceNotFound)?;
-        
+
         let config = device
             .default_output_config()
             .map_err(|e| AudioError::StreamCreationError(e.to_string()))?;
-            
+
         Ok(Self {
             device,
             config: config.into(),
@@ -49,46 +49,51 @@ impl AudioPlayer {
             position: 0,
             loop_enabled,
         }));
-        
+
         let state_clone = state.clone();
         let channels = self.config.channels as usize;
 
         let err_fn = |err| eprintln!("Audio stream error: {err}");
 
-        let stream = self.device.build_output_stream(
-            &self.config,
-            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                if let Ok(mut state) = state_clone.lock() {
-                    for frame in data.chunks_mut(channels) {
-                        let sample = if state.position < state.samples.len() {
-                            let s = state.samples[state.position];
-                            state.position += 1;
-                            s
-                        } else if state.loop_enabled {
-                             state.position = 0;
-                             if state.samples.is_empty() {
-                                 0.0
-                             } else {
-                                 let s = state.samples[0];
-                                 state.position = 1;
-                                 s
-                             }
-                        } else {
-                            0.0
-                        };
-                        
-                        for sample_out in frame.iter_mut() {
-                            *sample_out = sample;
+        let stream = self
+            .device
+            .build_output_stream(
+                &self.config,
+                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    if let Ok(mut state) = state_clone.lock() {
+                        for frame in data.chunks_mut(channels) {
+                            let sample = if state.position < state.samples.len() {
+                                let s = state.samples[state.position];
+                                state.position += 1;
+                                s
+                            } else if state.loop_enabled {
+                                state.position = 0;
+                                if state.samples.is_empty() {
+                                    0.0
+                                } else {
+                                    let s = state.samples[0];
+                                    state.position = 1;
+                                    s
+                                }
+                            } else {
+                                0.0
+                            };
+
+                            for sample_out in frame.iter_mut() {
+                                *sample_out = sample;
+                            }
                         }
                     }
-                }
-            },
-            err_fn,
-            None,
-        ).map_err(|e| AudioError::StreamCreationError(e.to_string()))?;
+                },
+                err_fn,
+                None,
+            )
+            .map_err(|e| AudioError::StreamCreationError(e.to_string()))?;
 
-        stream.play().map_err(|e| AudioError::PlaybackError(e.to_string()))?;
-        
+        stream
+            .play()
+            .map_err(|e| AudioError::PlaybackError(e.to_string()))?;
+
         self.stream = Some(stream);
         Ok(())
     }
@@ -115,18 +120,21 @@ mod tests {
                 assert!(!player.is_playing());
                 let samples = vec![0.0; 44100];
                 if let Err(e) = player.play(&samples, false) {
-                     println!("Play failed: {}, but player creation succeeded.", e);
+                    println!("Play failed: {}, but player creation succeeded.", e);
                 } else {
-                     assert!(player.is_playing());
-                     player.stop();
-                     assert!(!player.is_playing());
+                    assert!(player.is_playing());
+                    player.stop();
+                    assert!(!player.is_playing());
                 }
             }
             Err(AudioError::DeviceNotFound) => {
                 println!("No audio device found, skipping lifecycle test");
             }
             Err(AudioError::StreamCreationError(msg)) => {
-                 println!("Stream creation failed (likely no audio support in container): {}", msg);
+                println!(
+                    "Stream creation failed (likely no audio support in container): {}",
+                    msg
+                );
             }
             Err(e) => panic!("Unexpected error: {:?}", e),
         }

@@ -1,7 +1,7 @@
-use anyhow::{bail, Context, Result};
 use crate::cli::args::{PlayArgs, Waveform};
-use crate::{mml, audio, db};
 use crate::cli::output;
+use crate::{audio, db, mml};
+use anyhow::{bail, Context, Result};
 
 /// playサブコマンドのハンドラー
 ///
@@ -20,12 +20,13 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
         (Some(mml), None) => (mml.clone(), true),
         (None, Some(id)) => {
             let db = db::Database::init()?;
-            let entry = db.get_by_id(id)
+            let entry = db
+                .get_by_id(id)
                 .with_context(|| format!("[CLI-E002] 履歴ID {id} が見つかりません"))?;
             (entry.mml, false)
         }
         (None, None) => {
-             bail!("[CLI-E001] play コマンドでは、MML文字列または --history-id のいずれか一方を指定してください");
+            bail!("[CLI-E001] play コマンドでは、MML文字列または --history-id のいずれか一方を指定してください");
         }
         (Some(_), Some(_)) => {
             unreachable!("clap should prevent this")
@@ -33,8 +34,7 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     };
 
     // 2. MML解析
-    let ast = mml::parse(&mml_string)
-        .map_err(|e| anyhow::anyhow!("MML parse error: {e:?}"))?;
+    let ast = mml::parse(&mml_string).map_err(|e| anyhow::anyhow!("MML parse error: {e:?}"))?;
 
     // 3. 音声合成
     let waveform_type = match args.waveform {
@@ -46,12 +46,13 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     // volume: f32 (0.0-1.0) -> u8 (0-100)
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let volume_u8 = (args.volume * 100.0) as u8;
-    
+
     // sample_rate: 44100 (fixed for now)
     let sample_rate = 44100;
-    
+
     let mut synth = audio::synthesizer::Synthesizer::new(sample_rate, volume_u8, waveform_type);
-    let buffer = synth.synthesize(&ast)
+    let buffer = synth
+        .synthesize(&ast)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("音声合成に失敗しました")?;
 
@@ -59,9 +60,10 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     // コンテナ環境などオーディオデバイスがない場合は警告を出して続行
     match audio::player::AudioPlayer::new() {
         Ok(mut player) => {
-            player.play(&buffer, args.loop_play)
+            player
+                .play(&buffer, args.loop_play)
                 .context("音声再生に失敗しました")?;
-                
+
             // 5. プログレス表示 & 待機
             output::display_play_progress(&mml_string, &buffer, args.loop_play)?;
         }
@@ -73,26 +75,20 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     // 6. 履歴保存（新規入力かつ再生成功時）
     if should_save {
         let db = db::Database::init()?;
-        
+
         let db_waveform = match args.waveform {
             Waveform::Sine => db::history::Waveform::Sine,
             Waveform::Sawtooth => db::history::Waveform::Sawtooth,
             Waveform::Square => db::history::Waveform::Square,
         };
-        
+
         #[allow(clippy::cast_possible_truncation)]
         let bpm_u16 = args.bpm as u16;
 
-        let entry = db::HistoryEntry::new(
-            mml_string.clone(),
-            db_waveform,
-            args.volume,
-            bpm_u16,
-        );
-        
-        let history_id = db.save(&entry)
-            .context("履歴の保存に失敗しました")?;
-            
+        let entry = db::HistoryEntry::new(mml_string.clone(), db_waveform, args.volume, bpm_u16);
+
+        let history_id = db.save(&entry).context("履歴の保存に失敗しました")?;
+
         output::success(&format!("✓ 再生完了（履歴ID: {history_id}）"));
     } else {
         output::success("✓ 再生完了");
@@ -132,7 +128,7 @@ mod tests {
             loop_play: false,
             metronome: false,
         };
-        
+
         // コンテナ環境でDBエラー等が出る可能性があるが、ロジック自体がパニックしないことを確認
         let _ = play_handler(args);
     }
