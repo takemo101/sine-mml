@@ -1,0 +1,30 @@
+[package]
+name = "sine-mml"
+version = "0.1.0"
+edition = "2021"
+authors = ["takemo101"]
+description = "MML (Music Macro Language) Synthesizer CLI"
+license = "MIT"
+repository = "https://github.com/takemo101/sine-mml"
+readme = "README.md"
+keywords = ["mml", "music", "synthesizer", "audio", "cli"]
+categories = ["command-line-utilities", "multimedia::audio"]
+
+[dependencies]
+
+[dev-dependencies]
+
+[[bin]]
+name = "sine-mml"
+path = "src/main.rs"
+
+[lib]
+name = "sine_mml"
+path = "src/lib.rs"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

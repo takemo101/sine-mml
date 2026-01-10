@@ -1,0 +1,191 @@
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mml {
+    pub commands: Vec<Command>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Command {
+    Note(Note),
+    Rest(Rest),
+    Octave(Octave),
+    Tempo(Tempo),
+    DefaultLength(DefaultLength),
+    Volume(Volume),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Note {
+    pub pitch: Pitch,
+    pub accidental: Accidental,
+    pub duration: Option<u8>,
+    pub dots: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pitch {
+    C = 0,
+    D = 2,
+    E = 4,
+    F = 5,
+    G = 7,
+    A = 9,
+    B = 11,
+}
+
+impl Pitch {
+    #[must_use]
+    pub fn from_char(c: char) -> Option<Self> {
+        match c.to_ascii_uppercase() {
+            'C' => Some(Self::C),
+            'D' => Some(Self::D),
+            'E' => Some(Self::E),
+            'F' => Some(Self::F),
+            'G' => Some(Self::G),
+            'A' => Some(Self::A),
+            'B' => Some(Self::B),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Accidental {
+    Natural = 0,
+    Sharp = 1,
+    Flat = -1,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Rest {
+    pub duration: Option<u8>,
+    pub dots: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Octave {
+    pub value: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tempo {
+    pub value: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DefaultLength {
+    pub value: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Volume {
+    pub value: u8,
+}
+
+impl Note {
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    pub fn to_midi_note(&self, octave: u8) -> u8 {
+        let base_note = self.pitch as i16;
+        let accidental_offset = self.accidental as i16;
+        let midi_note = (i16::from(octave) + 1) * 12 + base_note + accidental_offset;
+        midi_note.clamp(0, 127) as u8
+    }
+
+    #[must_use]
+    pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
+        let length = f32::from(self.duration.unwrap_or(default_length));
+        if length == 0.0 {
+            return 0.0;
+        }
+        let base_duration = 240.0 / (f32::from(bpm) * length);
+        let dot_multiplier = calculate_dot_multiplier(self.dots);
+        base_duration * dot_multiplier
+    }
+}
+
+impl Rest {
+    #[must_use]
+    pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
+        let length = f32::from(self.duration.unwrap_or(default_length));
+        if length == 0.0 {
+            return 0.0;
+        }
+        let base_duration = 240.0 / (f32::from(bpm) * length);
+        let dot_multiplier = calculate_dot_multiplier(self.dots);
+        base_duration * dot_multiplier
+    }
+}
+
+fn calculate_dot_multiplier(dots: u8) -> f32 {
+    match dots {
+        0 => 1.0,
+        1 => 1.5,
+        2 => 1.75,
+        3 => 1.875,
+        _ => 1.0 + (1.0 - 0.5_f32.powi(i32::from(dots))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pitch_from_char_valid() {
+        assert_eq!(Pitch::from_char('C'), Some(Pitch::C));
+        assert_eq!(Pitch::from_char('c'), Some(Pitch::C));
+        assert_eq!(Pitch::from_char('G'), Some(Pitch::G));
+    }
+
+    #[test]
+    fn pitch_from_char_invalid() {
+        assert_eq!(Pitch::from_char('X'), None);
+        assert_eq!(Pitch::from_char('H'), None);
+    }
+
+    #[test]
+    fn note_to_midi_c4_equals_60() {
+        let note = Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: None,
+            dots: 0,
+        };
+        assert_eq!(note.to_midi_note(4), 60);
+    }
+
+    #[test]
+    fn note_to_midi_a4_equals_69() {
+        let note = Note {
+            pitch: Pitch::A,
+            accidental: Accidental::Natural,
+            duration: None,
+            dots: 0,
+        };
+        assert_eq!(note.to_midi_note(4), 69);
+    }
+
+    #[test]
+    fn note_duration_quarter_at_120bpm() {
+        let note = Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: Some(4),
+            dots: 0,
+        };
+        let duration = note.duration_in_seconds(120, 4);
+        assert!((duration - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn note_duration_dotted() {
+        let note = Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: Some(4),
+            dots: 1,
+        };
+        let duration = note.duration_in_seconds(120, 4);
+        assert!((duration - 0.75).abs() < 0.001);
+    }
+}
