@@ -17,6 +17,11 @@ pub enum Command {
 }
 
 #[derive(Args, Debug)]
+#[command(group(
+    clap::ArgGroup::new("input")
+        .required(true)
+        .args(["mml", "history_id"]),
+))]
 pub struct PlayArgs {
     pub mml: Option<String>,
     
