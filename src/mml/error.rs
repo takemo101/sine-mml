@@ -1,4 +1,4 @@
-use super::{Token, Pitch};
+use super::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseError {
@@ -33,7 +33,7 @@ impl std::fmt::Display for ParseError {
             } => {
                 write!(
                     f,
-                    "position {position}: expected '{expected}', found '{found:?}'"
+                    "位置 {position}: 期待されたトークン '{expected}' ですが、'{found:?}' が見つかりました"
                 )
             }
             Self::InvalidNumber {
@@ -43,7 +43,7 @@ impl std::fmt::Display for ParseError {
             } => {
                 write!(
                     f,
-                    "position {position}: value {value} is out of range {}-{}",
+                    "位置 {position}: 数値 {value} は範囲 {}-{} を超えています",
                     range.0, range.1
                 )
             }
@@ -53,17 +53,17 @@ impl std::fmt::Display for ParseError {
             } => {
                 write!(
                     f,
-                    "position {position}: unexpected character '{character}'"
+                    "位置 {position}: 不明な文字 '{character}' が見つかりました"
                 )
             }
             Self::UnexpectedEof { expected, position } => {
                 write!(
                     f,
-                    "position {position}: expected '{expected}', but reached end of input"
+                    "位置 {position}: '{expected}' が期待されましたが、入力が終了しました"
                 )
             }
             Self::EmptyInput => {
-                write!(f, "empty MML input")
+                write!(f, "空のMML文字列が入力されました")
             }
         }
     }
@@ -74,6 +74,7 @@ impl std::error::Error for ParseError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mml::Pitch;
 
     #[test]
     fn display_unexpected_token() {
