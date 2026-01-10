@@ -108,10 +108,7 @@ mod tests {
             character: 'X',
             position: 3,
         };
-        assert_eq!(
-            err.to_string(),
-            "位置 3: 不明な文字 'X' が見つかりました"
-        );
+        assert_eq!(err.to_string(), "位置 3: 不明な文字 'X' が見つかりました");
     }
 
     #[test]
