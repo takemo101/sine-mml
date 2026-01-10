@@ -1,3 +1,16 @@
 # OpenCode workflow
 node_modules/
 bun.lockb
+
+# Rust/Cargo
+/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
