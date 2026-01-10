@@ -56,12 +56,22 @@ pub enum Waveform {
 }
 
 // Validation functions
-pub fn validate_volume(_v: &str) -> Result<f32, String> {
-    Err("Not implemented".to_string())
+pub fn validate_volume(v: &str) -> Result<f32, String> {
+    let val: f32 = v.parse().map_err(|_| "Invalid number".to_string())?;
+    if (0.0..=1.0).contains(&val) {
+        Ok(val)
+    } else {
+        Err("Volume must be between 0.0 and 1.0".to_string())
+    }
 }
 
-pub fn validate_bpm(_v: &str) -> Result<u32, String> {
-    Err("Not implemented".to_string())
+pub fn validate_bpm(v: &str) -> Result<u32, String> {
+    let val: u32 = v.parse().map_err(|_| "Invalid number".to_string())?;
+    if (30..=300).contains(&val) {
+        Ok(val)
+    } else {
+        Err("BPM must be between 30 and 300".to_string())
+    }
 }
 
 #[cfg(test)]
