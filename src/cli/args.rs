@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand, Args, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(name = "sine-mml")]
@@ -24,7 +24,7 @@ pub enum Command {
 ))]
 pub struct PlayArgs {
     pub mml: Option<String>,
-    
+
     #[arg(long)]
     pub history_id: Option<i64>,
 
@@ -36,7 +36,7 @@ pub struct PlayArgs {
 
     #[arg(short, long, default_value_t = 120, value_parser = validate_bpm)]
     pub bpm: u32,
-    
+
     #[arg(long, default_value_t = false)]
     pub loop_play: bool,
 
@@ -48,7 +48,7 @@ pub struct PlayArgs {
 pub struct ExportArgs {
     #[arg(long)]
     pub history_id: i64,
-    
+
     #[arg(short, long)]
     pub output: String,
 }
@@ -142,7 +142,7 @@ mod tests {
         let err = result.unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
     }
-    
+
     #[test]
     fn test_waveform_parsing() {
         // Default is sine
@@ -160,7 +160,7 @@ mod tests {
             _ => panic!("Unexpected command"),
         };
         assert_eq!(args.waveform, Waveform::Sawtooth);
-        
+
         // Short flag -w
         let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "-w", "square"]);
         let args = match result.unwrap().command {
