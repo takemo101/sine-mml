@@ -39,6 +39,14 @@ impl Parser {
             Token::Pitch(_) => Ok(Command::Note(self.parse_note()?)),
             Token::Rest => Ok(Command::Rest(self.parse_rest()?)),
             Token::Octave => Ok(Command::Octave(self.parse_octave()?)),
+            Token::OctaveUp => {
+                self.advance();
+                Ok(Command::OctaveUp)
+            }
+            Token::OctaveDown => {
+                self.advance();
+                Ok(Command::OctaveDown)
+            }
             Token::Tempo => Ok(Command::Tempo(self.parse_tempo()?)),
             Token::Length => Ok(Command::DefaultLength(self.parse_length()?)),
             Token::Volume => Ok(Command::Volume(self.parse_volume()?)),
@@ -348,5 +356,30 @@ mod tests {
             }
             _ => panic!("Expected InvalidNumber"),
         }
+    }
+
+    #[test]
+    fn parse_octave_up() {
+        let mml = parse(">").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        assert!(matches!(mml.commands[0], Command::OctaveUp));
+    }
+
+    #[test]
+    fn parse_octave_down() {
+        let mml = parse("<").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        assert!(matches!(mml.commands[0], Command::OctaveDown));
+    }
+
+    #[test]
+    fn parse_octave_change_with_notes() {
+        let mml = parse("C >C <C").unwrap();
+        assert_eq!(mml.commands.len(), 5);
+        assert!(matches!(mml.commands[0], Command::Note(_)));
+        assert!(matches!(mml.commands[1], Command::OctaveUp));
+        assert!(matches!(mml.commands[2], Command::Note(_)));
+        assert!(matches!(mml.commands[3], Command::OctaveDown));
+        assert!(matches!(mml.commands[4], Command::Note(_)));
     }
 }
