@@ -34,14 +34,17 @@ pub struct PlayArgs {
     #[arg(short, long, default_value_t = 1.0, value_parser = validate_volume)]
     pub volume: f32,
 
-    #[arg(short, long, default_value_t = 120, value_parser = validate_bpm)]
-    pub bpm: u32,
-
     #[arg(long, default_value_t = false)]
     pub loop_play: bool,
 
     #[arg(long, default_value_t = false)]
     pub metronome: bool,
+
+    #[arg(long, value_parser = validate_metronome_beat, default_value_t = 4)]
+    pub metronome_beat: u8,
+
+    #[arg(long, value_parser = validate_volume, default_value_t = 0.3)]
+    pub metronome_volume: f32,
 }
 
 #[derive(Args, Debug)]
@@ -75,16 +78,17 @@ pub fn validate_volume(v: &str) -> Result<f32, String> {
     }
 }
 
-/// Validates that the BPM is between 30 and 300.
+/// Validates that the metronome beat is 4, 8, or 16.
 ///
 /// # Errors
-/// Returns an error if the input string cannot be parsed as a u32 or if the value is out of range.
-pub fn validate_bpm(v: &str) -> Result<u32, String> {
-    let val: u32 = v.parse().map_err(|_| "Invalid number".to_string())?;
-    if (30..=300).contains(&val) {
-        Ok(val)
-    } else {
-        Err("BPM must be between 30 and 300".to_string())
+/// Returns an error if the input string cannot be parsed as a u8 or if the value is not 4, 8, or 16.
+pub fn validate_metronome_beat(v: &str) -> Result<u8, String> {
+    let val: u8 = v.parse().map_err(|_| "Invalid number".to_string())?;
+    match val {
+        4 | 8 | 16 => Ok(val),
+        _ => Err(format!(
+            "メトロノームビートは 4, 8, 16 のいずれかを指定してください（指定値: {val}）"
+        )),
     }
 }
 
@@ -104,20 +108,6 @@ mod tests {
         assert!(validate_volume("-0.1").is_err());
         assert!(validate_volume("1.1").is_err());
         assert!(validate_volume("abc").is_err());
-    }
-
-    #[test]
-    fn test_validate_bpm_valid() {
-        assert!(validate_bpm("30").is_ok());
-        assert!(validate_bpm("300").is_ok());
-        assert!(validate_bpm("120").is_ok());
-    }
-
-    #[test]
-    fn test_validate_bpm_invalid() {
-        assert!(validate_bpm("29").is_err());
-        assert!(validate_bpm("301").is_err());
-        assert!(validate_bpm("abc").is_err());
     }
 
     #[test]
@@ -168,5 +158,68 @@ mod tests {
             _ => panic!("Unexpected command"),
         };
         assert_eq!(args.waveform, Waveform::Square);
+    }
+
+    #[test]
+    fn test_bpm_option_removed() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--bpm", "120"]);
+        assert!(result.is_err(), "bpm option should be removed");
+    }
+
+    #[test]
+    fn test_metronome_beat_valid() {
+        for beat in ["4", "8", "16"] {
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-beat", beat]);
+            assert!(result.is_ok(), "Should accept metronome-beat {}", beat);
+            let args = match result.unwrap().command {
+                Command::Play(args) => args,
+                _ => panic!("Unexpected command"),
+            };
+            assert_eq!(args.metronome_beat, beat.parse::<u8>().unwrap());
+        }
+    }
+
+    #[test]
+    fn test_metronome_beat_invalid() {
+        for beat in ["5", "12", "32", "abc"] {
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-beat", beat]);
+            assert!(result.is_err(), "Should reject metronome-beat {}", beat);
+        }
+    }
+
+    #[test]
+    fn test_metronome_volume_valid() {
+        for vol in ["0.0", "0.5", "1.0"] {
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-volume", vol]);
+            assert!(result.is_ok(), "Should accept metronome-volume {}", vol);
+            let args = match result.unwrap().command {
+                Command::Play(args) => args,
+                _ => panic!("Unexpected command"),
+            };
+            assert_eq!(args.metronome_volume, vol.parse::<f32>().unwrap());
+        }
+    }
+
+    #[test]
+    fn test_metronome_volume_out_of_range() {
+        for vol in ["-0.1", "1.1", "abc"] {
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-volume", vol]);
+            assert!(result.is_err(), "Should reject metronome-volume {}", vol);
+        }
+    }
+
+    #[test]
+    fn test_default_values() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.metronome_beat, 4);
+        assert_eq!(args.metronome_volume, 0.3);
     }
 }
