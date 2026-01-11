@@ -2,7 +2,9 @@
 
 [![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/takemo101/sine-mml/actions/workflows/ci.yml/badge.svg)](https://github.com/takemo101/sine-mml/actions)
+[![Test](https://github.com/takemo101/sine-mml/actions/workflows/test.yml/badge.svg)](https://github.com/takemo101/sine-mml/actions/workflows/test.yml)
+[![Lint](https://github.com/takemo101/sine-mml/actions/workflows/lint.yml/badge.svg)](https://github.com/takemo101/sine-mml/actions/workflows/lint.yml)
+[![Build](https://github.com/takemo101/sine-mml/actions/workflows/build.yml/badge.svg)](https://github.com/takemo101/sine-mml/actions/workflows/build.yml)
 
 **sine-mml** は、**MML（Music Macro Language）** を使って音楽を合成・再生するためのコマンドラインツールです。Rustで構築された高性能なオーディオエンジンにより、MML文字列から様々な波形で音楽を再生できます。
 
