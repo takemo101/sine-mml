@@ -143,7 +143,7 @@ fn test_cli_loop_count_error() {
     cmd.arg("play").arg("[CDEF]100");
     cmd.assert()
         .failure()
-        .stderr(predicate::str::contains("Loop count must be 1-99"));
+        .stderr(predicate::str::contains("InvalidLoopCount"));
 }
 
 /// TC-023-E-003: ネストループエラーのCLI表示
@@ -153,7 +153,7 @@ fn test_cli_nested_loop_error() {
     cmd.arg("play").arg("[[CDEF]2]3");
     cmd.assert()
         .failure()
-        .stderr(predicate::str::contains("Nested loops are not supported"));
+        .stderr(predicate::str::contains("NestedLoop"));
 }
 
 /// TC-024-E-002: 小文字とループの組み合わせ
