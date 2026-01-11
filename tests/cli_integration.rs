@@ -178,3 +178,79 @@ fn test_cli_loop_with_escape_point() {
         .timeout(std::time::Duration::from_secs(5));
     cmd.assert().code(predicate::in_iter([0i32]));
 }
+
+// ============================================================================
+// History Note E2E Tests (Issue #67, TC-025-E-xxx)
+// ============================================================================
+
+/// TC-025-E-001: --noteオプションでの再生
+#[test]
+fn test_cli_play_with_note() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("CDEF")
+        .arg("--note")
+        .arg("My melody")
+        .timeout(std::time::Duration::from_secs(5));
+    cmd.assert().code(predicate::in_iter([0i32]));
+
+    // Verify history contains note
+    let mut history_cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    history_cmd.arg("history");
+    history_cmd
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("My melody"));
+}
+
+/// TC-025-E-002: UTF-8メモの表示
+#[test]
+fn test_cli_note_with_utf8() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("CDEF")
+        .arg("--note")
+        .arg("あいうえお🎵")
+        .timeout(std::time::Duration::from_secs(5));
+    cmd.assert().code(predicate::in_iter([0i32]));
+
+    let mut history_cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    history_cmd.arg("history");
+    history_cmd
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("あいうえお🎵"));
+}
+
+/// TC-025-E-003: メモ長さ超過エラー
+#[test]
+fn test_cli_note_too_long() {
+    let long_note = "a".repeat(501);
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play").arg("CDEF").arg("--note").arg(&long_note);
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("500"));
+}
+
+/// TC-025-E-004: 履歴表示でのメモ列
+#[test]
+fn test_cli_history_displays_note_column() {
+    // Play with note
+    let mut cmd1 = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd1.arg("play")
+        .arg("CDEF")
+        .arg("--note")
+        .arg("Test note for display")
+        .timeout(std::time::Duration::from_secs(5));
+    cmd1.assert().code(predicate::in_iter([0i32]));
+
+    // Check history shows the note
+    let mut history_cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    history_cmd.arg("history");
+    history_cmd
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Note"))
+        .stdout(predicate::str::contains("Test note for display"));
+}
