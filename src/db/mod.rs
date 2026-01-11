@@ -266,12 +266,9 @@ mod tests {
 
     #[test]
     fn test_wal_mode_enabled() {
-        let db = match Database::init() {
-            Ok(d) => d,
-            Err(_) => {
-                println!("Skipping test: data directory unavailable in CI");
-                return;
-            }
+        let Ok(db) = Database::init() else {
+            println!("Skipping test: data directory unavailable in CI");
+            return;
         };
         let mode: String = db
             .conn
