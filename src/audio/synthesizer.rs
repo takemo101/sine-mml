@@ -175,7 +175,9 @@ pub fn normalize_samples(samples: &mut [f32]) {
 
     let scale = 1.0 / max_abs;
 
-    samples.iter_mut().for_each(|s| *s *= scale);
+    for s in samples {
+        *s *= scale;
+    }
 }
 
 #[cfg(test)]
