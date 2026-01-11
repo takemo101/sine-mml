@@ -163,7 +163,19 @@ impl Synthesizer {
 /// 最大絶対値が1.0を超える場合のみ、全サンプルを比例縮小する。
 /// 1.0以下の場合は何もしない（音量を上げない）。
 pub fn normalize_samples(samples: &mut [f32]) {
-    // TDD Red Phase: Empty implementation to fail tests
+    if samples.is_empty() {
+        return;
+    }
+
+    let max_abs = samples.iter().map(|s| s.abs()).fold(0.0_f32, f32::max);
+
+    if max_abs <= 1.0 {
+        return;
+    }
+
+    let scale = 1.0 / max_abs;
+
+    samples.iter_mut().for_each(|s| *s *= scale);
 }
 
 #[cfg(test)]
