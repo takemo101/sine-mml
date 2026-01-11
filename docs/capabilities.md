@@ -1,8 +1,8 @@
 # sine-mml CLI-Backend Capability Matrix
 
 **Project**: sine-mml  
-**Version**: v1.0 (current) → v2.0 (planned)  
-**Last Updated**: 2026-01-11
+**Version**: v2.0 (current)  
+**Last Updated**: 2026-01-12
 
 ---
 
@@ -17,16 +17,17 @@ This document tracks the implementation status of all CLI options and their corr
 
 ---
 
-## Current Implementation Status (v1.0)
+## Current Implementation Status (v2.0)
 
 | CLI Option | Backend Implementation | Status | Notes |
 |------------|----------------------|--------|-------|
 | `play <MML>` | `mml::parse()` + `Synthesizer::synthesize()` | ✅ Implemented | Core functionality - MML parsing and synthesis |
 | `--waveform <TYPE>` | `WaveformType` enum (Sine, Sawtooth, Square) | ✅ Implemented | 3 waveform types supported |
 | `--volume <0.0-1.0>` | `Synthesizer.volume` + `validate_volume()` | ✅ Implemented | Range validated by clap |
-| `--bpm <30-300>` | `PlayArgs.bpm` → `HistoryEntry.bpm` | ⚠️ Deprecated | **To be removed in v2.0** (use MML `T` command instead) |
-| `--loop-play` | `AudioPlayer.play(loop=true)` | ✅ Implemented | Infinite loop playback with Ctrl+C exit |
-| `--metronome` | `PlayArgs.metronome` flag | 🚧 In Progress | **Stub implementation** - flag exists but noise-based click sound not generated |
+| `--loop-play` | `AudioPlayer.play(loop=true)` | ✅ Implemented | Infinite loop playback, history saved before loop |
+| `--metronome` | `Synthesizer::mix_metronome()` + `generate_noise_click()` | ✅ Implemented | Noise-based click sound with exponential envelope |
+| `--metronome-beat <4\|8\|16>` | `Synthesizer::beat_interval_seconds()` | ✅ Implemented | Beat selection (4/8/16), default=4 |
+| `--metronome-volume <0.0-1.0>` | `Synthesizer::generate_noise_click(volume)` | ✅ Implemented | Metronome volume control, default=0.3 |
 | `--history-id <ID>` | `Database.get_by_id()` | ✅ Implemented | Replay from history database |
 | `history` | `Database.list(limit=20)` + comfy-table display | ✅ Implemented | Lists last 20 entries with formatted table |
 | `export --history-id <ID>` | `Database.get_by_id()` + `exporter::export_wav()` | ✅ Implemented | WAV file export from history |
@@ -34,13 +35,11 @@ This document tracks the implementation status of all CLI options and their corr
 
 ---
 
-## Planned Features (v2.0)
+## Removed Features (v2.0)
 
-| CLI Option | Backend Implementation | Status | Notes |
-|------------|----------------------|--------|-------|
-| `--metronome-beat <4\|8\|16>` | `Synthesizer::mix_metronome()` + `beat_interval_seconds()` | ❌ Not Implemented | **New in v2.0** - Beat selection (4/8/16 beat) |
-| `--metronome-volume <0.0-1.0>` | `Synthesizer::generate_noise_click(volume)` | ❌ Not Implemented | **New in v2.0** - Metronome volume control |
-| `--metronome` (enhanced) | `generate_noise_click()` + fundsp `noise()` + `highpass_hz()` | ❌ Not Implemented | **Upgrade in v2.0** - Noise-based click sound with exponential envelope |
+| CLI Option | Removal Reason | Migration |
+|------------|---------------|-----------|
+| `--bpm <30-300>` | Redundant with MML `T` command | Use `T120` in MML string instead of `--bpm 120` |
 
 ---
 
@@ -86,45 +85,47 @@ This document tracks the implementation status of all CLI options and their corr
 
 ---
 
-### 🚧 Partially Implemented Features
+### v2.0 New Features
 
-#### `--metronome` (v1.0 - Stub)
-- **Current State**: Flag exists in `PlayArgs`, but no sound generation
-- **Missing**: Noise-based click sound generation
-- **Missing**: Beat interval calculation
-- **Missing**: Mixing metronome samples with music
-- **Planned Upgrade**: v2.0 will add full implementation
-- **Location**: `src/cli/args.rs` (line 43-44)
-
----
-
-### ⚠️ Deprecated Features
-
-#### `--bpm` (Scheduled for removal in v2.0)
-- **Reason**: Redundant with MML `T` command (e.g., `T120`)
-- **Current State**: Still functional in v1.0
-- **Replacement**: Use MML `T` command inline (e.g., `"T140 CDEFGAB"`)
-- **Migration Guide**: Document in v2.0 release notes
-- **Removal Date**: v2.0.0 release
-
----
-
-### ❌ Not Yet Implemented (v2.0)
+#### `--metronome` (Enhanced)
+- **Backend**: `Synthesizer::mix_metronome()` + `generate_noise_click()`
+- **Sound**: Noise-based click with exponential envelope using fundsp
+- **Integration**: Mixed with music samples before playback
+- **Location**: `src/audio/synthesizer.rs`
 
 #### `--metronome-beat`
 - **Purpose**: Select metronome beat pattern
 - **Values**: 4 (quarter note), 8 (eighth note), 16 (sixteenth note)
 - **Backend Module**: `Synthesizer::beat_interval_seconds()`
-- **Validation**: Clap range validator (4, 8, 16 only)
+- **Validation**: Clap custom validator (4, 8, 16 only)
 - **Default**: 4
-- **Status**: Design complete, implementation pending
+- **Location**: `src/cli/args.rs`
 
 #### `--metronome-volume`
 - **Purpose**: Independent volume control for metronome
 - **Range**: 0.0-1.0
 - **Backend Module**: `Synthesizer::generate_noise_click(volume)`
 - **Default**: 0.3 (subtle, non-intrusive)
-- **Status**: Design complete, implementation pending
+- **Location**: `src/cli/args.rs`
+
+#### Loop History Saving
+- **Change**: History saved BEFORE playback loop starts
+- **Benefit**: Loop playback now correctly saves to history
+- **Location**: `src/cli/handlers.rs::play_handler()`
+
+#### Audio Normalization
+- **Purpose**: Prevent digital clipping when metronome + music combined
+- **Backend**: `Synthesizer::normalize_samples()`
+- **Location**: `src/audio/synthesizer.rs`
+
+---
+
+### ⛔ Removed Features (v2.0)
+
+#### `--bpm` (Removed)
+- **Reason**: Redundant with MML `T` command (e.g., `T120`)
+- **Replacement**: Use MML `T` command inline (e.g., `"T140 CDEFGAB"`)
+- **Error**: Using `--bpm` now returns "unexpected argument" error
 
 ---
 
@@ -135,7 +136,7 @@ This document tracks the implementation status of all CLI options and their corr
 | ✅ | **Implemented** | Fully implemented and tested - CLI option works as expected |
 | 🚧 | **In Progress** | Partially implemented - may be a stub or incomplete functionality |
 | ❌ | **Not Implemented** | Planned feature but not yet started |
-| ⚠️ | **Deprecated** | Scheduled for removal in a future version |
+| ⛔ | **Removed** | Feature has been removed from the CLI |
 
 ---
 
@@ -178,6 +179,7 @@ When creating a PR that adds or modifies CLI options:
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.0.0 | 2026-01-12 | Updated for v2.0 release: metronome, normalization, --bpm removed | - |
 | 1.0.0 | 2026-01-11 | Initial capability matrix created (F-020) | - |
 
 ---
