@@ -65,7 +65,7 @@ pub fn initialize(conn: &Connection) -> Result<(), DbError> {
 ///
 /// # Returns
 ///
-/// - `Ok(version)` - Current version (1 if schema_version table is empty or doesn't exist)
+/// - `Ok(version)` - Current version (1 if `schema_version` table is empty or doesn't exist)
 /// - `Err(DbError)` - Serious database error (I/O error, lock error, etc.)
 fn get_current_version(conn: &Connection) -> Result<i64, DbError> {
     let version = conn.query_row("SELECT version FROM schema_version", [], |row| {
