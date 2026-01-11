@@ -54,6 +54,9 @@ impl Synthesizer {
             }
         }
 
+        // Normalization (F-019)
+        normalize_samples(&mut samples);
+
         Ok(samples)
     }
 
@@ -155,6 +158,28 @@ impl Synthesizer {
     }
 }
 
+/// PCMサンプルをノーマライズ（最大絶対値を1.0以下に制限）
+///
+/// 最大絶対値が1.0を超える場合のみ、全サンプルを比例縮小する。
+/// 1.0以下の場合は何もしない（音量を上げない）。
+pub fn normalize_samples(samples: &mut [f32]) {
+    if samples.is_empty() {
+        return;
+    }
+
+    let max_abs = samples.iter().map(|s| s.abs()).fold(0.0_f32, f32::max);
+
+    if max_abs <= 1.0 {
+        return;
+    }
+
+    let scale = 1.0 / max_abs;
+
+    for s in samples {
+        *s *= scale;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +221,73 @@ mod tests {
         let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
         let samples = synth.generate_click_samples(120);
         assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_normalize_clipping_samples() {
+        let mut samples = vec![-1.5, 0.8, 1.2];
+        normalize_samples(&mut samples);
+        // Expected: [-1.0, 0.533, 0.8]
+        // Scale = 1.0 / 1.5 = 0.6666...
+        assert!((samples[0] - (-1.0)).abs() < 0.001);
+        assert!((samples[1] - 0.5333).abs() < 0.001);
+        assert!((samples[2] - 0.8).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_normalize_no_change_when_within_range() {
+        let original = vec![-0.8, 0.5, 0.9];
+        let mut samples = original.clone();
+        normalize_samples(&mut samples);
+        assert_eq!(samples, original);
+    }
+
+    #[test]
+    fn test_normalize_boundary_case() {
+        let mut samples = vec![1.0, -1.0];
+        let original = samples.clone();
+        normalize_samples(&mut samples);
+        assert_eq!(samples, original);
+    }
+
+    #[test]
+    fn test_normalize_empty_slice() {
+        let mut samples: Vec<f32> = vec![];
+        normalize_samples(&mut samples);
+        assert!(samples.is_empty());
+    }
+
+    #[test]
+    fn test_normalize_single_sample_exceeding() {
+        let mut samples = vec![2.0];
+        normalize_samples(&mut samples);
+        assert!((samples[0] - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_normalize_single_sample_within_range() {
+        let mut samples = vec![0.5];
+        normalize_samples(&mut samples);
+        assert_eq!(samples[0], 0.5);
+    }
+
+    #[test]
+    fn test_normalize_all_zeros() {
+        let mut samples = vec![0.0, 0.0, 0.0];
+        normalize_samples(&mut samples);
+        assert_eq!(samples, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_normalize_negative_peak() {
+        let mut samples = vec![-2.0, 0.5, -1.8];
+        normalize_samples(&mut samples);
+        // max abs is 2.0. Scale is 0.5.
+        // -2.0 * 0.5 = -1.0
+        // 0.5 * 0.5 = 0.25
+        // -1.8 * 0.5 = -0.9
+        assert!((samples[0] - (-1.0)).abs() < 0.001);
+        assert!((samples[1] - 0.25).abs() < 0.001);
+        assert!((samples[2] - (-0.9)).abs() < 0.001);
     }
 }
