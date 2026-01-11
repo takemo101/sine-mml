@@ -3,6 +3,20 @@ pub struct Mml {
     pub commands: Vec<Command>,
 }
 
+impl Mml {
+    /// MMLコマンドから最初に設定されたテンポを取得する。
+    /// Tempoコマンドがない場合はデフォルトの120を返す。
+    #[must_use]
+    pub fn get_tempo(&self) -> u16 {
+        for command in &self.commands {
+            if let Command::Tempo(tempo) = command {
+                return tempo.value;
+            }
+        }
+        120
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     Note(Note),
@@ -189,5 +203,34 @@ mod tests {
         };
         let duration = note.duration_in_seconds(120, 4);
         assert!((duration - 0.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn get_tempo_with_tempo_command() {
+        let mml = Mml {
+            commands: vec![
+                Command::Tempo(Tempo { value: 180 }),
+                Command::Note(Note {
+                    pitch: Pitch::C,
+                    accidental: Accidental::Natural,
+                    duration: Some(4),
+                    dots: 0,
+                }),
+            ],
+        };
+        assert_eq!(mml.get_tempo(), 180);
+    }
+
+    #[test]
+    fn get_tempo_without_tempo_command_returns_default() {
+        let mml = Mml {
+            commands: vec![Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: Some(4),
+                dots: 0,
+            })],
+        };
+        assert_eq!(mml.get_tempo(), 120);
     }
 }
