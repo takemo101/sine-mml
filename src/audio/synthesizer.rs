@@ -49,6 +49,8 @@ impl Synthesizer {
                     samples.extend(vec![0.0; num_samples]);
                 }
                 Command::Octave(o) => octave = o.value,
+                Command::OctaveUp => octave = octave.saturating_add(1).min(8),
+                Command::OctaveDown => octave = octave.saturating_sub(1).max(1),
                 Command::Tempo(t) => bpm = t.value,
                 Command::DefaultLength(l) => default_length = l.value,
                 Command::Volume(v) => current_velocity = v.value,

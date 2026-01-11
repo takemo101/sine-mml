@@ -8,6 +8,8 @@ pub enum Command {
     Note(Note),
     Rest(Rest),
     Octave(Octave),
+    OctaveUp,
+    OctaveDown,
     Tempo(Tempo),
     DefaultLength(DefaultLength),
     Volume(Volume),

@@ -18,6 +18,8 @@ pub enum Token {
     Dot,
     Number(u16),
     Octave,
+    OctaveUp,
+    OctaveDown,
     Tempo,
     Length,
     Volume,
@@ -104,6 +106,18 @@ pub fn tokenize(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
             'R' => {
                 chars.next();
                 let tok = TokenWithPos::new(Token::Rest, position);
+                position += 1;
+                tok
+            }
+            '>' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::OctaveUp, position);
+                position += 1;
+                tok
+            }
+            '<' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::OctaveDown, position);
                 position += 1;
                 tok
             }
@@ -281,5 +295,30 @@ mod tests {
         let tokens = tokenize("C D").unwrap();
         assert_eq!(tokens[0].position, 0);
         assert_eq!(tokens[1].position, 2);
+    }
+
+    #[test]
+    fn tokenize_octave_up() {
+        let tokens = tokenize(">").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::OctaveUp);
+    }
+
+    #[test]
+    fn tokenize_octave_down() {
+        let tokens = tokenize("<").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::OctaveDown);
+    }
+
+    #[test]
+    fn tokenize_octave_change_in_mml() {
+        let tokens = tokenize("C >C <C").unwrap();
+        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens[0].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[1].token, Token::OctaveUp);
+        assert_eq!(tokens[2].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[3].token, Token::OctaveDown);
+        assert_eq!(tokens[4].token, Token::Pitch(Pitch::C));
     }
 }
