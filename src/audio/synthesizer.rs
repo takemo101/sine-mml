@@ -1,6 +1,6 @@
 use crate::audio::waveform::{create_node, midi_to_frequency, WaveformType};
 use crate::mml::{Command, Mml, Note};
-use fundsp::hacker::*;
+use fundsp::hacker::{highpass_hz, noise};
 use std::error::Error;
 
 pub struct Synthesizer {
@@ -141,21 +141,8 @@ impl Synthesizer {
         clippy::cast_sign_loss
     )]
     pub fn generate_click_samples(&self, _bpm: u16) -> Vec<f32> {
-        let frequency = 1000.0;
-        let duration = 0.05; // 50ms
-        let num_samples = (duration * f64::from(self.sample_rate)) as usize;
-        let mut audio_node = create_node(WaveformType::Sine, frequency);
-        audio_node.set_sample_rate(f64::from(self.sample_rate));
-
-        let mut samples = Vec::with_capacity(num_samples);
-        for i in 0..num_samples {
-            let mut sample = audio_node.get_mono() as f32;
-            // Linear decay
-            let env = 1.0 - (i as f32 / num_samples as f32);
-            sample *= env * (f32::from(self.volume) / 100.0);
-            samples.push(sample);
-        }
-        samples
+        // Use new noise-based click generation
+        generate_noise_click(f64::from(self.sample_rate), f32::from(self.volume) / 100.0)
     }
 }
 
@@ -179,6 +166,50 @@ pub fn normalize_samples(samples: &mut [f32]) {
     for s in samples {
         *s *= scale;
     }
+}
+
+/// ノイズベースのクリックサンプルを生成
+///
+/// fundspの`noise()`関数によりホワイトノイズを生成し、
+/// ハイパスフィルター（5kHz）と指数減衰エンベロープを適用して、
+/// ドラムのハイハット風のクリック音を作成する。
+///
+/// # Arguments
+/// * `sample_rate` - サンプリングレート（Hz）通常は44100.0
+/// * `volume` - 音量係数（0.0〜1.0）
+///
+/// # Returns
+/// 25msのクリック音サンプル配列（約1102サンプル @44100Hz）
+#[must_use]
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+pub fn generate_noise_click(sample_rate: f64, volume: f32) -> Vec<f32> {
+    const CLICK_DURATION: f64 = 0.025; // 25ms
+    const DECAY_RATE: f64 = -10.0;
+    const HIGHPASS_CUTOFF: f32 = 5000.0;
+    const HIGHPASS_Q: f32 = 1.0;
+
+    let num_samples = (sample_rate * CLICK_DURATION) as usize;
+    let mut dsp_graph = noise() >> highpass_hz(HIGHPASS_CUTOFF, HIGHPASS_Q);
+    dsp_graph.reset();
+    dsp_graph.set_sample_rate(sample_rate);
+
+    let mut samples = Vec::with_capacity(num_samples);
+    for i in 0..num_samples {
+        let t = (i as f64) / sample_rate;
+        let noise_sample = dsp_graph.get_mono() as f32;
+
+        // 指数減衰エンベロープ
+        let envelope = (DECAY_RATE * t / CLICK_DURATION).exp() as f32;
+
+        // 音量適用
+        let final_sample = noise_sample * envelope * volume;
+        samples.push(final_sample);
+    }
+    samples
 }
 
 #[cfg(test)]
@@ -290,5 +321,27 @@ mod tests {
         assert!((samples[0] - (-1.0)).abs() < 0.001);
         assert!((samples[1] - 0.25).abs() < 0.001);
         assert!((samples[2] - (-0.9)).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_noise_click_sample_count() {
+        // 25ms at 44100Hz = 1102.5 samples, truncated to 1102
+        let samples = generate_noise_click(44100.0, 0.3);
+        assert_eq!(samples.len(), 1102);
+    }
+
+    #[test]
+    fn test_noise_click_volume_application() {
+        let samples_low = generate_noise_click(44100.0, 0.1);
+        let samples_high = generate_noise_click(44100.0, 0.9);
+
+        let max_low = samples_low.iter().map(|s| s.abs()).fold(0.0_f32, f32::max);
+        let max_high = samples_high.iter().map(|s| s.abs()).fold(0.0_f32, f32::max);
+
+        // Noise is random, but higher volume consistently produces higher peak amplitude
+        assert!(
+            max_high > max_low * 2.0,
+            "High volume should be significantly louder than low volume"
+        );
     }
 }
