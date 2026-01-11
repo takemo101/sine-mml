@@ -61,24 +61,8 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("音声合成に失敗しました")?;
 
-    // 4. 再生
-    // コンテナ環境などオーディオデバイスがない場合は警告を出して続行
-    match audio::player::AudioPlayer::new() {
-        Ok(mut player) => {
-            player
-                .play(&buffer, args.loop_play)
-                .context("音声再生に失敗しました")?;
-
-            // 5. プログレス表示 & 待機
-            output::display_play_progress(&mml_string, &buffer, args.loop_play)?;
-        }
-        Err(_) => {
-            eprintln!("Warning: Audio device not found. Skipping playback.");
-        }
-    }
-
-    // 6. 履歴保存（新規入力かつ再生成功時）
-    if should_save {
+    // 4. 履歴保存（ループ前に実行）
+    let history_id_opt = if should_save {
         let db = db::Database::init()?;
 
         let db_waveform = match args.waveform {
@@ -92,9 +76,36 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
 
         let entry = db::HistoryEntry::new(mml_string.clone(), db_waveform, args.volume, bpm_u16);
 
-        let history_id = db.save(&entry).context("履歴の保存に失敗しました")?;
+        match db.save(&entry) {
+            Ok(id) => Some(id),
+            Err(e) => {
+                eprintln!("Warning: 履歴の保存に失敗しました: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
-        output::success(&format!("✓ 再生完了（履歴ID: {history_id}）"));
+    // 5. 再生
+    // コンテナ環境などオーディオデバイスがない場合は警告を出して続行
+    match audio::player::AudioPlayer::new() {
+        Ok(mut player) => {
+            player
+                .play(&buffer, args.loop_play)
+                .context("音声再生に失敗しました")?;
+
+            // 6. プログレス表示 & 待機
+            output::display_play_progress(&mml_string, &buffer, args.loop_play)?;
+        }
+        Err(_) => {
+            eprintln!("Warning: Audio device not found. Skipping playback.");
+        }
+    }
+
+    // 7. 成功メッセージ
+    if let Some(id) = history_id_opt {
+        output::success(&format!("✓ 再生完了（履歴ID: {id}）"));
     } else {
         output::success("✓ 再生完了");
     }
