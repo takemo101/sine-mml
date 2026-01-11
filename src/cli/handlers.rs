@@ -72,8 +72,8 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
             Waveform::Square => db::history::Waveform::Square,
         };
 
-        #[allow(clippy::cast_possible_truncation)]
-        let bpm_u16 = args.bpm as u16;
+        // BPMはTコマンドで指定されるが、履歴にはデフォルト120として記録（MML内にTコマンドがあればそれが優先されるが、DBスキーマ上必要）
+        let bpm_u16 = 120;
 
         let entry = db::HistoryEntry::new(mml_string.clone(), db_waveform, args.volume, bpm_u16);
 
@@ -218,9 +218,10 @@ mod tests {
             history_id: None,
             waveform: Waveform::Sine,
             volume: 1.0,
-            bpm: 120,
             loop_play: false,
             metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
         };
         let result = play_handler(args);
         assert!(result.is_err());
@@ -234,9 +235,10 @@ mod tests {
             history_id: None,
             waveform: Waveform::Sine,
             volume: 0.5,
-            bpm: 120,
             loop_play: false,
             metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
         };
 
         let _ = play_handler(args);
