@@ -404,6 +404,6 @@ mod tests {
     #[should_panic(expected = "validated by clap")]
     fn test_beat_interval_invalid_beat() {
         // 無効なビート値（5）はパニックする
-        beat_interval_seconds(120, 5);
+        let _ = beat_interval_seconds(120, 5);
     }
 }
