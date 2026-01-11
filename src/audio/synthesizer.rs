@@ -406,4 +406,55 @@ mod tests {
         // 無効なビート値（5）はパニックする
         let _ = beat_interval_seconds(120, 5);
     }
+
+    // mix_metronome tests (Issue #31)
+    #[test]
+    fn test_mix_metronome_click_positions() {
+        let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mut samples = vec![0.0; 44100]; // 1秒分
+
+        // 120BPM, 4ビート: 0.5秒ごと → 1秒で2クリック
+        synth.mix_metronome(&mut samples, 44100.0, 120, 4, 0.3);
+
+        // クリック位置でサンプルが0でないことを確認
+        assert_ne!(samples[0], 0.0, "先頭にクリックがあるはず");
+        assert_ne!(samples[22050], 0.0, "0.5秒後にクリックがあるはず");
+    }
+
+    #[test]
+    fn test_mix_metronome_additive() {
+        let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mut samples = vec![0.5; 44100]; // 全サンプル0.5で初期化
+        let original_value = samples[0];
+
+        synth.mix_metronome(&mut samples, 44100.0, 120, 4, 0.3);
+
+        // 加算ミックスのため、クリック位置のサンプルは元の値と異なるはず
+        // (0.5 + クリック音 != 0.5)
+        assert!(
+            (samples[0] - original_value).abs() > 0.01,
+            "クリックが加算されているはず"
+        );
+    }
+
+    #[test]
+    fn test_mix_metronome_16beat_more_clicks() {
+        let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mut samples_4beat = vec![0.0; 44100];
+        let mut samples_16beat = vec![0.0; 44100];
+
+        synth.mix_metronome(&mut samples_4beat, 44100.0, 120, 4, 0.3);
+        synth.mix_metronome(&mut samples_16beat, 44100.0, 120, 16, 0.3);
+
+        // 16ビートは4ビートより多くのクリックがあるため、非ゼロサンプルが多い
+        let nonzero_4beat = samples_4beat.iter().filter(|&&x| x != 0.0).count();
+        let nonzero_16beat = samples_16beat.iter().filter(|&&x| x != 0.0).count();
+
+        assert!(
+            nonzero_16beat > nonzero_4beat,
+            "16ビートは4ビートより多くのクリックがあるはず: {} > {}",
+            nonzero_16beat,
+            nonzero_4beat
+        );
+    }
 }
