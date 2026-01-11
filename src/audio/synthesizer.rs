@@ -146,6 +146,59 @@ impl Synthesizer {
         // Use new noise-based click generation
         generate_noise_click(f64::from(self.sample_rate), f32::from(self.volume) / 100.0)
     }
+
+    /// メトロノームサンプルを演奏サンプルにミックス
+    ///
+    /// 指定されたビート間隔でクリックサンプルを生成し、演奏サンプルに加算ミックスする。
+    /// クリック位置は演奏の先頭から等間隔で配置される。
+    ///
+    /// # Arguments
+    /// * `samples` - 演奏サンプル（可変参照、この関数でクリックが加算される）
+    /// * `sample_rate` - サンプリングレート（Hz）
+    /// * `bpm` - テンポ（BPM）
+    /// * `beat` - ビート値（4, 8, 16）
+    /// * `volume` - メトロノーム音量（0.0〜1.0）
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    pub fn mix_metronome(
+        &self,
+        samples: &mut [f32],
+        sample_rate: f64,
+        bpm: u16,
+        beat: u8,
+        volume: f32,
+    ) {
+        // 1. クリック間隔計算
+        let interval_sec = beat_interval_seconds(bpm, beat);
+        let interval_samples = (interval_sec * sample_rate as f32) as usize;
+
+        // 2. クリックサンプル生成
+        let click_samples = generate_noise_click(sample_rate, volume);
+
+        // 3. ミックス処理
+        let mut position = 0;
+        while position < samples.len() {
+            // クリックサンプルを加算ミックス
+            for (i, &click_sample) in click_samples.iter().enumerate() {
+                let sample_index = position + i;
+                if sample_index >= samples.len() {
+                    break;
+                }
+                samples[sample_index] += click_sample;
+            }
+
+            // 次のクリック位置へ
+            position += interval_samples;
+
+            // 無限ループ防止
+            if interval_samples == 0 {
+                break;
+            }
+        }
+    }
 }
 
 /// PCMサンプルをノーマライズ（最大絶対値を1.0以下に制限）
@@ -405,5 +458,56 @@ mod tests {
     fn test_beat_interval_invalid_beat() {
         // 無効なビート値（5）はパニックする
         let _ = beat_interval_seconds(120, 5);
+    }
+
+    // mix_metronome tests (Issue #31)
+    #[test]
+    fn test_mix_metronome_click_positions() {
+        let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mut samples = vec![0.0; 44100]; // 1秒分
+
+        // 120BPM, 4ビート: 0.5秒ごと → 1秒で2クリック
+        synth.mix_metronome(&mut samples, 44100.0, 120, 4, 0.3);
+
+        // クリック位置でサンプルが0でないことを確認
+        assert_ne!(samples[0], 0.0, "先頭にクリックがあるはず");
+        assert_ne!(samples[22050], 0.0, "0.5秒後にクリックがあるはず");
+    }
+
+    #[test]
+    fn test_mix_metronome_additive() {
+        let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mut samples = vec![0.5; 44100]; // 全サンプル0.5で初期化
+        let original_value = samples[0];
+
+        synth.mix_metronome(&mut samples, 44100.0, 120, 4, 0.3);
+
+        // 加算ミックスのため、クリック位置のサンプルは元の値と異なるはず
+        // (0.5 + クリック音 != 0.5)
+        assert!(
+            (samples[0] - original_value).abs() > 0.01_f32,
+            "クリックが加算されているはず"
+        );
+    }
+
+    #[test]
+    fn test_mix_metronome_16beat_more_clicks() {
+        let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mut samples_4beat = vec![0.0; 44100];
+        let mut samples_16beat = vec![0.0; 44100];
+
+        synth.mix_metronome(&mut samples_4beat, 44100.0, 120, 4, 0.3);
+        synth.mix_metronome(&mut samples_16beat, 44100.0, 120, 16, 0.3);
+
+        // 16ビートは4ビートより多くのクリックがあるため、非ゼロサンプルが多い
+        let nonzero_4beat = samples_4beat.iter().filter(|&&x| x != 0.0).count();
+        let nonzero_16beat = samples_16beat.iter().filter(|&&x| x != 0.0).count();
+
+        assert!(
+            nonzero_16beat > nonzero_4beat,
+            "16ビートは4ビートより多くのクリックがあるはず: {} > {}",
+            nonzero_16beat,
+            nonzero_4beat
+        );
     }
 }
