@@ -345,4 +345,67 @@ mod tests {
         assert_eq!(tokens[3].token, Token::OctaveDown);
         assert_eq!(tokens[4].token, Token::Pitch(Pitch::C));
     }
+
+    #[test]
+    fn tokenize_loop_start() {
+        let tokens = tokenize("[").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::LoopStart);
+        assert_eq!(tokens[0].position, 0);
+        assert_eq!(tokens[1].token, Token::Eof);
+    }
+
+    #[test]
+    fn tokenize_loop_end() {
+        let tokens = tokenize("]").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::LoopEnd);
+        assert_eq!(tokens[0].position, 0);
+        assert_eq!(tokens[1].token, Token::Eof);
+    }
+
+    #[test]
+    fn tokenize_loop_escape() {
+        let tokens = tokenize(":").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::LoopEscape);
+        assert_eq!(tokens[0].position, 0);
+        assert_eq!(tokens[1].token, Token::Eof);
+    }
+
+    #[test]
+    fn tokenize_simple_loop() {
+        let tokens = tokenize("[CDE]3").unwrap();
+        assert_eq!(tokens.len(), 7);
+        assert_eq!(tokens[0].token, Token::LoopStart);
+        assert_eq!(tokens[1].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[2].token, Token::Pitch(Pitch::D));
+        assert_eq!(tokens[3].token, Token::Pitch(Pitch::E));
+        assert_eq!(tokens[4].token, Token::LoopEnd);
+        assert_eq!(tokens[5].token, Token::Number(3));
+        assert_eq!(tokens[6].token, Token::Eof);
+    }
+
+    #[test]
+    fn tokenize_loop_with_escape() {
+        let tokens = tokenize("[CD:EF]2").unwrap();
+        assert_eq!(tokens.len(), 9);
+        assert_eq!(tokens[0].token, Token::LoopStart);
+        assert_eq!(tokens[1].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[2].token, Token::Pitch(Pitch::D));
+        assert_eq!(tokens[3].token, Token::LoopEscape);
+        assert_eq!(tokens[4].token, Token::Pitch(Pitch::E));
+        assert_eq!(tokens[5].token, Token::Pitch(Pitch::F));
+        assert_eq!(tokens[6].token, Token::LoopEnd);
+        assert_eq!(tokens[7].token, Token::Number(2));
+        assert_eq!(tokens[8].token, Token::Eof);
+    }
+
+    #[test]
+    fn tokenize_loop_positions() {
+        let tokens = tokenize("[C]").unwrap();
+        assert_eq!(tokens[0].position, 0); // [
+        assert_eq!(tokens[1].position, 1); // C
+        assert_eq!(tokens[2].position, 2); // ]
+    }
 }
