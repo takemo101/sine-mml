@@ -49,10 +49,13 @@ sine-mml play <MML文字列> [オプション]
 |-----------|-------|------|-----------|
 | `--waveform` | `-w` | 波形タイプ（sine/sawtooth/square） | sine |
 | `--volume` | `-v` | 音量（0.0〜1.0） | 1.0 |
-| `--bpm` | `-b` | テンポ（30〜300） | 120 |
 | `--loop-play` | - | ループ再生（Ctrl+Cで停止） | false |
 | `--metronome` | - | メトロノーム音を追加 | false |
+| `--metronome-beat` | - | メトロノームのビート（4/8/16） | 4 |
+| `--metronome-volume` | - | メトロノームの音量（0.0〜1.0） | 0.5 |
 | `--history-id` | - | 履歴IDから再生 | - |
+
+> **Note**: v2.0で`--bpm`オプションは削除されました。テンポはMML内の`T`コマンドで指定してください（例: `T140`）。
 
 ### 使用例
 
@@ -66,14 +69,17 @@ sine-mml play "CDEFGAB" --waveform sawtooth
 # 音量を半分にして再生
 sine-mml play "CDEFGAB" --volume 0.5
 
-# テンポ180で再生
-sine-mml play "CDEFGAB" --bpm 180
+# テンポ180で再生（MML内のTコマンドで指定）
+sine-mml play "T180 CDEFGAB"
 
 # ループ再生（Ctrl+Cで停止）
 sine-mml play "CDEFGAB" --loop-play
 
 # 矩形波、音量0.3、テンポ200で再生
-sine-mml play "CDEFGAB" -w square -v 0.3 -b 200
+sine-mml play "T200 CDEFGAB" -w square -v 0.3
+
+# メトロノーム付きで再生（8ビート、音量0.3）
+sine-mml play "T120 CDEFGAB" --metronome --metronome-beat 8 --metronome-volume 0.3
 
 # 履歴ID 5 を再生
 sine-mml play --history-id 5
@@ -308,6 +314,26 @@ rm -rf ~/.local/share/sine-mml/
 # または
 rm -rf ~/Library/Application\ Support/sine-mml/
 ```
+
+---
+
+## v2.0 移行ガイド
+
+### `--bpm`オプションの廃止
+
+v2.0で`--bpm`オプションは削除されました。テンポはMML内の`T`コマンドで指定してください。
+
+**Before (v1.x)**:
+```bash
+sine-mml play "CDEFGAB" --bpm 180
+```
+
+**After (v2.0)**:
+```bash
+sine-mml play "T180 CDEFGAB"
+```
+
+この変更により、MML文字列が自己完結的になり、履歴からの再生時も同じテンポで再生されます。
 
 ---
 

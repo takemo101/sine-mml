@@ -14,6 +14,7 @@
 
 - **再生**: MML文字列をターミナルから直接再生
 - **波形選択**: サイン波、ノコギリ波、矩形波から選択
+- **メトロノーム**: ノイズベースのクリック音で練習をサポート（v2.0新機能）
 - **履歴管理**: SQLiteによる永続的な演奏履歴の管理
 - **エクスポート**: 演奏をWAVファイルとして出力
 
@@ -45,8 +46,11 @@ cargo install --path .
 # Cメジャースケールを再生
 sine-mml play "CDEFGAB >C"
 
-# ノコギリ波でテンポ180で再生
+# ノコギリ波でテンポ180で再生（テンポはMML内のTコマンドで指定）
 sine-mml play "T180 L8 O5 C D E F G A B >C" --waveform sawtooth
+
+# メトロノーム付きで再生（v2.0新機能）
+sine-mml play "T120 CDEFGAB" --metronome --metronome-beat 8 --metronome-volume 0.5
 
 # 履歴を表示
 sine-mml history
@@ -59,6 +63,8 @@ sine-mml export --history-id 1 --output my_music.wav
 ```
 
 詳細な使い方は [USAGE.md](USAGE.md) を参照してください。
+
+> **v2.0移行ノート**: `--bpm`オプションは削除されました。テンポはMML内の`T`コマンドで指定してください（例: `T140 CDEFGAB`）。
 
 ---
 

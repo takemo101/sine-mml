@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-01-12
+
+### Added
+
+- **メトロノーム機能**: ノイズベースのクリック音生成
+  - `--metronome` フラグでメトロノームを有効化
+  - `--metronome-beat` で4/8/16ビートを選択
+  - `--metronome-volume` で音量調節（0.0〜1.0）
+- **音声ノーマライゼーション**: クリッピング防止機能
+- **E2E統合テスト基盤**: `assert_cmd`を使用したCLIテスト
+- **CLI-Backend対応マトリクス**: 機能対応状況のドキュメント化
+
+### Changed
+
+- **履歴保存タイミング**: ループ再生時も再生前に履歴を保存するよう変更
+
+### Removed
+
+- **`--bpm`オプション**: MML内の`T`コマンドに統合（Breaking Change）
+  - 移行方法: `--bpm 180` → MML内に`T180`を記述
+
 ## [0.1.0] - 2026-01-10
 
 ### Added
