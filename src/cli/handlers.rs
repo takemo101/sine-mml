@@ -21,14 +21,15 @@ fn determine_should_save(args: &PlayArgs) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn play_handler(args: PlayArgs) -> Result<()> {
     // 1. 引数の検証とMML取得
-    let (mml_string, should_save) = match (&args.mml, args.history_id) {
-        (Some(mml), None) => (mml.clone(), true),
+    let should_save = determine_should_save(&args);
+    let mml_string = match (&args.mml, args.history_id) {
+        (Some(mml), None) => mml.clone(),
         (None, Some(id)) => {
             let db = db::Database::init()?;
             let entry = db
                 .get_by_id(id)
                 .with_context(|| format!("[CLI-E002] 履歴ID {id} が見つかりません"))?;
-            (entry.mml, false)
+            entry.mml
         }
         (None, None) => {
             bail!("[CLI-E001] play コマンドでは、MML文字列または --history-id のいずれか一方を指定してください");
