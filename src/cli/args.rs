@@ -45,6 +45,10 @@ pub struct PlayArgs {
 
     #[arg(long, value_parser = validate_volume, default_value_t = 0.3)]
     pub metronome_volume: f32,
+
+    /// 履歴にメモを付与（最大500文字、UTF-8対応）
+    #[arg(long)]
+    pub note: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -89,6 +93,24 @@ pub fn validate_metronome_beat(v: &str) -> Result<u8, String> {
         _ => Err(format!(
             "メトロノームビートは 4, 8, 16 のいずれかを指定してください（指定値: {val}）"
         )),
+    }
+}
+
+/// Maximum allowed length for note field (in characters, not bytes).
+pub const MAX_NOTE_LENGTH: usize = 500;
+
+/// Validates that the note is within the maximum length.
+///
+/// # Errors
+/// Returns an error if the note exceeds 500 characters.
+pub fn validate_note(note: &str) -> Result<(), String> {
+    let char_count = note.chars().count();
+    if char_count > MAX_NOTE_LENGTH {
+        Err(format!(
+            "メモは{MAX_NOTE_LENGTH}文字以内で入力してください（現在: {char_count}文字）"
+        ))
+    } else {
+        Ok(())
     }
 }
 
@@ -221,5 +243,65 @@ mod tests {
         };
         assert_eq!(args.metronome_beat, 4);
         assert_eq!(args.metronome_volume, 0.3);
+        assert_eq!(args.note, None);
+    }
+
+    #[test]
+    fn test_note_option() {
+        // With note
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--note", "My melody"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.note, Some("My melody".to_string()));
+
+        // Without note
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.note, None);
+
+        // Empty note
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--note", ""]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.note, Some(String::new()));
+    }
+
+    #[test]
+    fn test_validate_note_valid() {
+        assert!(validate_note("My melody").is_ok());
+        assert!(validate_note("").is_ok());
+        assert!(validate_note(&"a".repeat(500)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_note_too_long() {
+        let result = validate_note(&"a".repeat(501));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("500文字以内"));
+    }
+
+    #[test]
+    fn test_validate_note_utf8() {
+        // UTF-8 characters (emoji)
+        assert!(validate_note("🎵🎶🎵").is_ok());
+        assert!(validate_note("あいうえお").is_ok());
+    }
+
+    #[test]
+    fn test_validate_note_char_count() {
+        // Character count (not byte count)
+        let note = "あ".repeat(500); // 1500 bytes but 500 characters
+        assert!(validate_note(&note).is_ok());
+
+        let note = "あ".repeat(501); // 1503 bytes and 501 characters
+        assert!(validate_note(&note).is_err());
     }
 }

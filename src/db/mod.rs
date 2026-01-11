@@ -110,12 +110,13 @@ impl Database {
         }
 
         self.conn.execute(
-            "INSERT INTO history (mml, waveform, volume, bpm, created_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO history (mml, waveform, volume, bpm, note, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             params![
                 entry.mml,
                 entry.waveform.as_str(),
                 entry.volume,
                 entry.bpm,
+                entry.note.as_deref(),
                 entry.created_at.to_rfc3339()
             ],
         )?;
@@ -130,9 +131,9 @@ impl Database {
     /// Returns `DbError` if database query fails.
     pub fn list(&self, limit: Option<usize>) -> Result<Vec<HistoryEntry>, DbError> {
         let sql = if let Some(l) = limit {
-            format!("SELECT id, mml, waveform, volume, bpm, created_at FROM history ORDER BY created_at DESC LIMIT {l}")
+            format!("SELECT id, mml, waveform, volume, bpm, note, created_at FROM history ORDER BY created_at DESC LIMIT {l}")
         } else {
-            "SELECT id, mml, waveform, volume, bpm, created_at FROM history ORDER BY created_at DESC".to_string()
+            "SELECT id, mml, waveform, volume, bpm, note, created_at FROM history ORDER BY created_at DESC".to_string()
         };
 
         let mut stmt = self.conn.prepare(&sql)?;
@@ -146,11 +147,11 @@ impl Database {
                 )
             })?;
 
-            let created_at_str: String = row.get(5)?;
+            let created_at_str: String = row.get(6)?;
             let created_at = DateTime::parse_from_rfc3339(&created_at_str)
                 .map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(
-                        5,
+                        6,
                         rusqlite::types::Type::Text,
                         Box::new(e),
                     )
@@ -163,6 +164,7 @@ impl Database {
                 waveform,
                 volume: row.get(3)?,
                 bpm: row.get(4)?,
+                note: row.get(5)?,
                 created_at,
             })
         })?;
@@ -184,7 +186,7 @@ impl Database {
     /// - Database query fails.
     pub fn get_by_id(&self, id: i64) -> Result<HistoryEntry, DbError> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, mml, waveform, volume, bpm, created_at FROM history WHERE id = ?",
+            "SELECT id, mml, waveform, volume, bpm, note, created_at FROM history WHERE id = ?",
         )?;
 
         let result = stmt.query_row(params![id], |row| {
@@ -197,11 +199,11 @@ impl Database {
                 )
             })?;
 
-            let created_at_str: String = row.get(5)?;
+            let created_at_str: String = row.get(6)?;
             let created_at = DateTime::parse_from_rfc3339(&created_at_str)
                 .map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(
-                        5,
+                        6,
                         rusqlite::types::Type::Text,
                         Box::new(e),
                     )
@@ -214,6 +216,7 @@ impl Database {
                 waveform,
                 volume: row.get(3)?,
                 bpm: row.get(4)?,
+                note: row.get(5)?,
                 created_at,
             })
         });
@@ -270,7 +273,7 @@ mod tests {
     #[test]
     fn test_save_and_get_by_id() {
         let db = Database::open_in_memory().unwrap();
-        let entry = HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120);
+        let entry = HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120, None);
         let id = db.save(&entry).unwrap();
 
         let fetched = db.get_by_id(id).unwrap();
@@ -278,14 +281,48 @@ mod tests {
         assert_eq!(fetched.waveform, Waveform::Sine);
         assert_eq!(fetched.volume, 0.5);
         assert_eq!(fetched.bpm, 120);
+        assert_eq!(fetched.note, None);
         assert_eq!(fetched.id, Some(id));
+    }
+
+    #[test]
+    fn test_save_and_get_by_id_with_note() {
+        let db = Database::open_in_memory().unwrap();
+        let entry = HistoryEntry::new(
+            "CDE".to_string(),
+            Waveform::Sine,
+            0.5,
+            120,
+            Some("My melody".to_string()),
+        );
+        let id = db.save(&entry).unwrap();
+
+        let fetched = db.get_by_id(id).unwrap();
+        assert_eq!(fetched.mml, "CDE");
+        assert_eq!(fetched.note, Some("My melody".to_string()));
+    }
+
+    #[test]
+    fn test_save_and_get_by_id_with_utf8_note() {
+        let db = Database::open_in_memory().unwrap();
+        let entry = HistoryEntry::new(
+            "CDE".to_string(),
+            Waveform::Sine,
+            0.5,
+            120,
+            Some("🎵 私のメロディ 🎶".to_string()),
+        );
+        let id = db.save(&entry).unwrap();
+
+        let fetched = db.get_by_id(id).unwrap();
+        assert_eq!(fetched.note, Some("🎵 私のメロディ 🎶".to_string()));
     }
 
     #[test]
     fn test_list_returns_descending_order() {
         let db = Database::open_in_memory().unwrap();
-        let entry1 = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 120);
-        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130);
+        let entry1 = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 120, None);
+        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
 
         db.save(&entry1).unwrap();
         // Ensure timestamp difference
@@ -299,10 +336,32 @@ mod tests {
     }
 
     #[test]
+    fn test_list_includes_note() {
+        let db = Database::open_in_memory().unwrap();
+        let entry1 = HistoryEntry::new(
+            "C".to_string(),
+            Waveform::Sine,
+            0.5,
+            120,
+            Some("Note 1".to_string()),
+        );
+        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
+
+        db.save(&entry1).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        db.save(&entry2).unwrap();
+
+        let list = db.list(None).unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].note, None); // D (newest)
+        assert_eq!(list[1].note, Some("Note 1".to_string())); // C
+    }
+
+    #[test]
     fn test_list_with_limit() {
         let db = Database::open_in_memory().unwrap();
         for i in 0..5 {
-            let entry = HistoryEntry::new(format!("MML{}", i), Waveform::Sine, 0.5, 120);
+            let entry = HistoryEntry::new(format!("MML{i}"), Waveform::Sine, 0.5, 120, None);
             db.save(&entry).unwrap();
         }
 
@@ -321,7 +380,7 @@ mod tests {
     #[test]
     fn test_save_validation_mml_empty() {
         let db = Database::open_in_memory().unwrap();
-        let entry = HistoryEntry::new("".to_string(), Waveform::Sine, 0.5, 120);
+        let entry = HistoryEntry::new(String::new(), Waveform::Sine, 0.5, 120, None);
         let result = db.save(&entry);
         assert!(result.is_err());
         match result {
@@ -333,7 +392,7 @@ mod tests {
     #[test]
     fn test_save_validation_volume_out_of_range() {
         let db = Database::open_in_memory().unwrap();
-        let entry = HistoryEntry::new("C".to_string(), Waveform::Sine, 1.5, 120);
+        let entry = HistoryEntry::new("C".to_string(), Waveform::Sine, 1.5, 120, None);
         let result = db.save(&entry);
         assert!(result.is_err());
     }
@@ -341,7 +400,7 @@ mod tests {
     #[test]
     fn test_save_validation_bpm_out_of_range() {
         let db = Database::open_in_memory().unwrap();
-        let entry = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 500);
+        let entry = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 500, None);
         let result = db.save(&entry);
         assert!(result.is_err());
     }
