@@ -1,4 +1,4 @@
-use crate::cli::args::{ExportArgs, PlayArgs, Waveform};
+use crate::cli::args::{validate_note, ExportArgs, PlayArgs, Waveform};
 use crate::cli::output;
 use crate::{audio, db, mml};
 use anyhow::{bail, Context, Result};
@@ -38,6 +38,11 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
             unreachable!("clap should prevent this")
         }
     };
+
+    // メモのバリデーション
+    if let Some(ref note) = args.note {
+        validate_note(note).map_err(|e| anyhow::anyhow!("[CLI-E010] {e}"))?;
+    }
 
     // 2. MML解析
     let ast = mml::parse(&mml_string).map_err(|e| anyhow::anyhow!("MML parse error: {e:?}"))?;
@@ -87,7 +92,13 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
         // BPMはTコマンドで指定されるが、履歴にはデフォルト120として記録（MML内にTコマンドがあればそれが優先されるが、DBスキーマ上必要）
         let bpm_u16 = 120;
 
-        let entry = db::HistoryEntry::new(mml_string.clone(), db_waveform, args.volume, bpm_u16);
+        let entry = db::HistoryEntry::new(
+            mml_string.clone(),
+            db_waveform,
+            args.volume,
+            bpm_u16,
+            args.note.clone(),
+        );
 
         match db.save(&entry) {
             Ok(id) => Some(id),
@@ -118,7 +129,11 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
 
     // 7. 成功メッセージ
     if let Some(id) = history_id_opt {
-        output::success(&format!("✓ 再生完了（履歴ID: {id}）"));
+        if let Some(ref note) = args.note {
+            output::success(&format!("✓ 再生完了（履歴ID: {id}、メモ: {note}）"));
+        } else {
+            output::success(&format!("✓ 再生完了（履歴ID: {id}）"));
+        }
     } else {
         output::success("✓ 再生完了");
     }
@@ -146,7 +161,7 @@ fn history_logic(db: &db::Database) -> Result<()> {
     let mut table = Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
-        .set_header(vec!["ID", "MML", "Waveform", "Volume", "Created At"]);
+        .set_header(vec!["ID", "MML", "Waveform", "Volume", "Note", "Created At"]);
 
     for entry in history {
         table.add_row(vec![
@@ -154,6 +169,7 @@ fn history_logic(db: &db::Database) -> Result<()> {
             truncate_mml(&entry.mml, 50),
             format!("{:?}", entry.waveform),
             format!("{:.1}", entry.volume),
+            entry.note.unwrap_or_else(|| "-".to_string()),
             entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         ]);
     }
@@ -233,6 +249,7 @@ mod tests {
             metronome: false,
             metronome_beat: 4,
             metronome_volume: 0.3,
+            note: None,
         };
         let result = play_handler(args);
         assert!(result.is_err());
@@ -250,9 +267,46 @@ mod tests {
             metronome: false,
             metronome_beat: 4,
             metronome_volume: 0.3,
+            note: None,
         };
 
         let _ = play_handler(args);
+    }
+
+    #[test]
+    fn test_play_handler_with_note() {
+        let args = PlayArgs {
+            mml: Some("C".to_string()),
+            history_id: None,
+            waveform: Waveform::Sine,
+            volume: 0.5,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note: Some("Test note".to_string()),
+        };
+
+        let _ = play_handler(args);
+    }
+
+    #[test]
+    fn test_play_handler_with_note_too_long() {
+        let args = PlayArgs {
+            mml: Some("C".to_string()),
+            history_id: None,
+            waveform: Waveform::Sine,
+            volume: 0.5,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note: Some("a".repeat(501)),
+        };
+
+        let result = play_handler(args);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("[CLI-E010]"));
     }
 
     #[test]
@@ -286,7 +340,21 @@ mod tests {
     #[test]
     fn test_history_logic_with_data() {
         let db = db::Database::open_in_memory().unwrap();
-        let entry = db::HistoryEntry::new("CDE".to_string(), db::Waveform::Sine, 0.5, 120);
+        let entry = db::HistoryEntry::new("CDE".to_string(), db::Waveform::Sine, 0.5, 120, None);
+        db.save(&entry).unwrap();
+        assert!(history_logic(&db).is_ok());
+    }
+
+    #[test]
+    fn test_history_logic_with_note() {
+        let db = db::Database::open_in_memory().unwrap();
+        let entry = db::HistoryEntry::new(
+            "CDE".to_string(),
+            db::Waveform::Sine,
+            0.5,
+            120,
+            Some("My melody".to_string()),
+        );
         db.save(&entry).unwrap();
         assert!(history_logic(&db).is_ok());
     }
@@ -309,7 +377,7 @@ mod tests {
     #[test]
     fn test_export_logic_success() {
         let db = db::Database::open_in_memory().unwrap();
-        let entry = db::HistoryEntry::new("C".to_string(), db::Waveform::Sine, 0.5, 120);
+        let entry = db::HistoryEntry::new("C".to_string(), db::Waveform::Sine, 0.5, 120, None);
         let id = db.save(&entry).unwrap();
 
         let dir = std::env::temp_dir();
@@ -339,6 +407,7 @@ mod tests {
             metronome: false,
             metronome_beat: 4,
             metronome_volume: 0.3,
+            note: None,
         };
         assert!(determine_should_save(&args));
     }
@@ -354,6 +423,7 @@ mod tests {
             metronome: false,
             metronome_beat: 4,
             metronome_volume: 0.3,
+            note: None,
         };
         assert!(!determine_should_save(&args));
     }
