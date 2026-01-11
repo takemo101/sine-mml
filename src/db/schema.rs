@@ -92,6 +92,21 @@ fn get_current_version(conn: &Connection) -> Result<i64, DbError> {
     }
 }
 
+/// Checks if a column exists in a table.
+fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
+    let count: i32 = conn
+        .query_row(
+            &format!(
+                "SELECT count(*) FROM pragma_table_info('{}') WHERE name='{}'",
+                table, column
+            ),
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    count > 0
+}
+
 /// Migrates the database schema to the current version.
 ///
 /// # Errors
@@ -104,11 +119,13 @@ pub fn migrate(conn: &Connection) -> Result<(), DbError> {
         // v1 → v2 マイグレーション
         let tx = conn.unchecked_transaction()?;
 
-        // note カラム追加
-        tx.execute(
-            "ALTER TABLE history ADD COLUMN note TEXT NULL CHECK(note IS NULL OR length(note) <= 500)",
-            [],
-        )?;
+        // note カラムが既に存在するかチェック（冪等性のため）
+        if !column_exists(&tx, "history", "note") {
+            tx.execute(
+                "ALTER TABLE history ADD COLUMN note TEXT NULL CHECK(note IS NULL OR length(note) <= 500)",
+                [],
+            )?;
+        }
 
         // バージョン更新
         let row_count: i64 = tx
