@@ -233,6 +233,13 @@ fn export_logic(db: &db::Database, args: &ExportArgs) -> Result<()> {
     Ok(())
 }
 
+pub fn clear_history_handler() -> Result<()> {
+    let db = db::Database::init()?;
+    let deleted = db.clear_all().context("履歴の削除に失敗しました")?;
+    output::success(&format!("✓ {deleted}件の履歴を削除しました"));
+    Ok(())
+}
+
 fn truncate_mml(mml: &str, max_len: usize) -> String {
     if mml.len() <= max_len {
         mml.to_string()
