@@ -43,7 +43,7 @@ pub struct PlayArgs {
     #[arg(long, value_parser = validate_metronome_beat, default_value_t = 4)]
     pub metronome_beat: u8,
 
-    #[arg(long, value_parser = clap::value_parser!(f32).range(0.0..=1.0), default_value_t = 0.3)]
+    #[arg(long, value_parser = validate_volume, default_value_t = 0.3)]
     pub metronome_volume: f32,
 }
 
