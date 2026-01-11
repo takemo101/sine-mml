@@ -127,6 +127,24 @@ pub fn tokenize(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
                 position += 1;
                 tok
             }
+            '[' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::LoopStart, position);
+                position += 1;
+                tok
+            }
+            ']' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::LoopEnd, position);
+                position += 1;
+                tok
+            }
+            ':' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::LoopEscape, position);
+                position += 1;
+                tok
+            }
             _ if c.is_ascii_digit() => {
                 let start_pos = position;
                 let (number, consumed) = parse_number(&mut chars)?;
