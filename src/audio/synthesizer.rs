@@ -170,6 +170,28 @@ pub fn normalize_samples(samples: &mut [f32]) {
     }
 }
 
+/// ビート値から1クリックあたりの秒数を計算
+///
+/// # Arguments
+/// * `bpm` - テンポ（BPM: Beats Per Minute）、30〜300の範囲
+/// * `beat` - ビート値（4, 8, 16のみ有効）
+///
+/// # Returns
+/// クリック間隔（秒）
+///
+/// # Panics
+/// `beat`が4, 8, 16以外の場合にパニックします。
+/// ただし、CLIレベルでclapによりバリデーション済みのため、実行時には発生しません。
+#[must_use]
+pub fn beat_interval_seconds(bpm: u16, beat: u8) -> f32 {
+    match beat {
+        4 => 60.0 / bpm as f32,  // 4分音符: 1拍あたりの秒数
+        8 => 30.0 / bpm as f32,  // 8分音符: 0.5拍あたりの秒数
+        16 => 15.0 / bpm as f32, // 16分音符: 0.25拍あたりの秒数
+        _ => unreachable!("beat value is validated by clap"),
+    }
+}
+
 /// ノイズベースのクリックサンプルを生成
 ///
 /// fundspの`noise()`関数によりホワイトノイズを生成し、
