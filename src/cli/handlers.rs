@@ -302,4 +302,32 @@ mod tests {
 
         let _ = std::fs::remove_file(path);
     }
+
+    #[test]
+    fn test_should_save_flag_mml_input() {
+        let args = PlayArgs {
+            mml: Some("CDE".to_string()),
+            history_id: None,
+            waveform: Waveform::Sine,
+            volume: 1.0,
+            bpm: 120,
+            loop_play: false,
+            metronome: false,
+        };
+        assert!(determine_should_save(&args));
+    }
+
+    #[test]
+    fn test_should_save_flag_history_id() {
+        let args = PlayArgs {
+            mml: None,
+            history_id: Some(1),
+            waveform: Waveform::Sine,
+            volume: 1.0,
+            bpm: 120,
+            loop_play: false,
+            metronome: false,
+        };
+        assert!(!determine_should_save(&args));
+    }
 }
