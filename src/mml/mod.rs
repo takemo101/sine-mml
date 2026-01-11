@@ -24,6 +24,12 @@ pub enum Token {
     Length,
     Volume,
     Rest,
+    /// Loop start bracket `[`
+    LoopStart,
+    /// Loop end bracket `]`
+    LoopEnd,
+    /// Loop escape point `:`
+    LoopEscape,
     Eof,
 }
 
