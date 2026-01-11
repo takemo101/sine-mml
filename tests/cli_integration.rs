@@ -8,7 +8,7 @@ fn test_play_basic_mml() {
     cmd.arg("play")
         .arg("C")
         .timeout(std::time::Duration::from_secs(5));
-    
+
     // Should succeed (audio device may not exist in CI, but command should not fail)
     let assert = cmd.assert();
     // Either success or warning about audio device
@@ -47,10 +47,7 @@ fn test_version_flag() {
 #[test]
 fn test_bpm_option_removed() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
-    cmd.arg("play")
-        .arg("C")
-        .arg("--bpm")
-        .arg("120");
+    cmd.arg("play").arg("C").arg("--bpm").arg("120");
     cmd.assert()
         .failure()
         .stderr(predicate::str::contains("unexpected argument"));
@@ -60,10 +57,7 @@ fn test_bpm_option_removed() {
 #[test]
 fn test_invalid_metronome_beat() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
-    cmd.arg("play")
-        .arg("C")
-        .arg("--metronome-beat")
-        .arg("5");
+    cmd.arg("play").arg("C").arg("--metronome-beat").arg("5");
     cmd.assert()
         .failure()
         .stderr(predicate::str::contains("4, 8, 16"));

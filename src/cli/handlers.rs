@@ -161,7 +161,14 @@ fn history_logic(db: &db::Database) -> Result<()> {
     let mut table = Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
-        .set_header(vec!["ID", "MML", "Waveform", "Volume", "Note", "Created At"]);
+        .set_header(vec![
+            "ID",
+            "MML",
+            "Waveform",
+            "Volume",
+            "Note",
+            "Created At",
+        ]);
 
     for entry in history {
         table.add_row(vec![

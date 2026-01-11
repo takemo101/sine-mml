@@ -123,8 +123,13 @@ mod tests {
 
     #[test]
     fn test_history_entry_new_with_empty_note() {
-        let entry =
-            HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120, Some(String::new()));
+        let entry = HistoryEntry::new(
+            "CDE".to_string(),
+            Waveform::Sine,
+            0.5,
+            120,
+            Some(String::new()),
+        );
         assert_eq!(entry.note, Some(String::new()));
     }
 
