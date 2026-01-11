@@ -1,5 +1,6 @@
 use crate::audio::waveform::{create_node, midi_to_frequency, WaveformType};
 use crate::mml::{Command, Mml, Note};
+use fundsp::hacker::*;
 use std::error::Error;
 
 pub struct Synthesizer {
