@@ -46,7 +46,7 @@ impl TokenWithPos {
     }
 }
 
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::too_many_lines)]
 pub fn tokenize(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
     let mut tokens = Vec::new();
     let mut chars = input.chars().peekable();
