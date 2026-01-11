@@ -27,6 +27,22 @@ pub enum Command {
     Tempo(Tempo),
     DefaultLength(DefaultLength),
     Volume(Volume),
+    /// ループコマンド: [commands]n
+    ///
+    /// # フィールド
+    /// - `commands`: ループ内のコマンド列
+    /// - `escape_index`: 脱出ポイントのインデックス（:の位置）
+    ///   - `None`: 脱出ポイントなし（全コマンドを繰り返す）
+    ///   - `Some(n)`: n番目のコマンドの後で最終回に脱出
+    /// - `repeat_count`: ループ回数（1-99）
+    Loop {
+        /// ループ内のコマンド列
+        commands: Vec<Command>,
+        /// 脱出ポイントのインデックス（Noneの場合は脱出なし）
+        escape_index: Option<usize>,
+        /// 繰り返し回数（1-99）
+        repeat_count: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

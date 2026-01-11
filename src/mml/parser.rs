@@ -3,6 +3,31 @@ use super::{
     TokenWithPos, Volume,
 };
 
+#[must_use]
+pub fn expand_loop(
+    commands: &[Command],
+    escape_index: Option<usize>,
+    repeat_count: usize,
+) -> Vec<Command> {
+    let mut expanded = Vec::with_capacity(commands.len() * repeat_count);
+
+    for i in 0..repeat_count {
+        let is_last_iteration = i == repeat_count - 1;
+
+        let end_index = if let (true, Some(idx)) = (is_last_iteration, escape_index) {
+            idx
+        } else {
+            commands.len()
+        };
+
+        for cmd in &commands[..end_index] {
+            expanded.push(cmd.clone());
+        }
+    }
+
+    expanded
+}
+
 pub struct Parser {
     tokens: Vec<TokenWithPos>,
     current: usize,
@@ -27,7 +52,18 @@ impl Parser {
 
         while !self.is_at_end() {
             let command = self.parse_command()?;
-            commands.push(command);
+
+            if let Command::Loop {
+                commands: loop_commands,
+                escape_index,
+                repeat_count,
+            } = command
+            {
+                let expanded = expand_loop(&loop_commands, escape_index, repeat_count);
+                commands.extend(expanded);
+            } else {
+                commands.push(command);
+            }
         }
 
         Ok(Mml { commands })
@@ -50,6 +86,13 @@ impl Parser {
             Token::Tempo => Ok(Command::Tempo(self.parse_tempo()?)),
             Token::Length => Ok(Command::DefaultLength(self.parse_length()?)),
             Token::Volume => Ok(Command::Volume(self.parse_volume()?)),
+            Token::LoopStart => self.parse_loop(),
+            Token::LoopEnd => Err(ParseError::UnmatchedLoopEnd {
+                position: token_with_pos.position,
+            }),
+            Token::LoopEscape => Err(ParseError::LoopEscapeOutsideLoop {
+                position: token_with_pos.position,
+            }),
             Token::Eof => Err(ParseError::UnexpectedEof {
                 expected: "command".to_string(),
                 position: token_with_pos.position,
@@ -60,6 +103,86 @@ impl Parser {
                 position: token_with_pos.position,
             }),
         }
+    }
+
+    fn parse_loop(&mut self) -> Result<Command, ParseError> {
+        let start_pos = self.peek().position;
+        self.advance();
+
+        let mut commands = Vec::new();
+        let mut escape_index = None;
+        let mut escape_count = 0;
+
+        while !self.check_loop_end() {
+            if self.is_at_end() {
+                return Err(ParseError::UnmatchedLoopStart {
+                    position: start_pos,
+                });
+            }
+
+            if self.check_loop_escape() {
+                escape_count += 1;
+                if escape_count > 1 {
+                    return Err(ParseError::MultipleEscapePoints {
+                        position: self.peek().position,
+                    });
+                }
+                self.advance();
+                escape_index = Some(commands.len());
+                continue;
+            }
+
+            if self.check_loop_start() {
+                return Err(ParseError::NestedLoop {
+                    position: self.peek().position,
+                });
+            }
+
+            let command = self.parse_command()?;
+            commands.push(command);
+        }
+
+        self.advance();
+
+        let repeat_count = if self.check_number() {
+            let token_with_pos = self.advance();
+            if let Token::Number(n) = token_with_pos.token {
+                if n == 0 || n > 99 {
+                    return Err(ParseError::InvalidLoopCount {
+                        value: n,
+                        range: (1, 99),
+                        position: token_with_pos.position,
+                    });
+                }
+                n as usize
+            } else {
+                unreachable!()
+            }
+        } else {
+            1
+        };
+
+        Ok(Command::Loop {
+            commands,
+            escape_index,
+            repeat_count,
+        })
+    }
+
+    fn check_loop_end(&self) -> bool {
+        matches!(self.peek().token, Token::LoopEnd)
+    }
+
+    fn check_loop_escape(&self) -> bool {
+        matches!(self.peek().token, Token::LoopEscape)
+    }
+
+    fn check_loop_start(&self) -> bool {
+        matches!(self.peek().token, Token::LoopStart)
+    }
+
+    fn check_number(&self) -> bool {
+        matches!(self.peek().token, Token::Number(_))
     }
 
     fn parse_note(&mut self) -> Result<Note, ParseError> {
@@ -381,5 +504,215 @@ mod tests {
         assert!(matches!(mml.commands[2], Command::Note(_)));
         assert!(matches!(mml.commands[3], Command::OctaveDown));
         assert!(matches!(mml.commands[4], Command::Note(_)));
+    }
+
+    #[test]
+    fn parse_basic_loop_3_times() {
+        let mml = parse("[CDEF]3").unwrap();
+        assert_eq!(mml.commands.len(), 12);
+        for i in 0..3 {
+            let base = i * 4;
+            assert!(matches!(&mml.commands[base], Command::Note(n) if n.pitch == Pitch::C));
+            assert!(matches!(&mml.commands[base + 1], Command::Note(n) if n.pitch == Pitch::D));
+            assert!(matches!(&mml.commands[base + 2], Command::Note(n) if n.pitch == Pitch::E));
+            assert!(matches!(&mml.commands[base + 3], Command::Note(n) if n.pitch == Pitch::F));
+        }
+    }
+
+    #[test]
+    fn parse_loop_with_escape_point() {
+        let mml = parse("[CD:EF]2").unwrap();
+        assert_eq!(mml.commands.len(), 6);
+        assert!(matches!(&mml.commands[0], Command::Note(n) if n.pitch == Pitch::C));
+        assert!(matches!(&mml.commands[1], Command::Note(n) if n.pitch == Pitch::D));
+        assert!(matches!(&mml.commands[2], Command::Note(n) if n.pitch == Pitch::E));
+        assert!(matches!(&mml.commands[3], Command::Note(n) if n.pitch == Pitch::F));
+        assert!(matches!(&mml.commands[4], Command::Note(n) if n.pitch == Pitch::C));
+        assert!(matches!(&mml.commands[5], Command::Note(n) if n.pitch == Pitch::D));
+    }
+
+    #[test]
+    fn parse_loop_default_count() {
+        let mml = parse("[CDEF]").unwrap();
+        assert_eq!(mml.commands.len(), 4);
+    }
+
+    #[test]
+    fn parse_loop_count_1() {
+        let mml = parse("[CDEF]1").unwrap();
+        assert_eq!(mml.commands.len(), 4);
+    }
+
+    #[test]
+    fn parse_loop_count_99() {
+        let mml = parse("[C]99").unwrap();
+        assert_eq!(mml.commands.len(), 99);
+    }
+
+    #[test]
+    fn parse_loop_count_0_error() {
+        let err = parse("[CDEF]0").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::InvalidLoopCount {
+                value: 0,
+                range: (1, 99),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_loop_count_100_error() {
+        let err = parse("[CDEF]100").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::InvalidLoopCount {
+                value: 100,
+                range: (1, 99),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_nested_loop_error() {
+        let err = parse("[[CDEF]2]3").unwrap_err();
+        assert!(matches!(err, ParseError::NestedLoop { .. }));
+    }
+
+    #[test]
+    fn parse_unmatched_loop_start_error() {
+        let err = parse("[CDEF").unwrap_err();
+        assert!(matches!(err, ParseError::UnmatchedLoopStart { .. }));
+    }
+
+    #[test]
+    fn parse_unmatched_loop_end_error() {
+        let err = parse("CDEF]").unwrap_err();
+        assert!(matches!(err, ParseError::UnmatchedLoopEnd { .. }));
+    }
+
+    #[test]
+    fn parse_loop_escape_outside_loop_error() {
+        let err = parse("CDEF:GAB").unwrap_err();
+        assert!(matches!(err, ParseError::LoopEscapeOutsideLoop { .. }));
+    }
+
+    #[test]
+    fn parse_multiple_escape_points_error() {
+        let err = parse("[C:D:E]2").unwrap_err();
+        assert!(matches!(err, ParseError::MultipleEscapePoints { .. }));
+    }
+
+    #[test]
+    fn parse_empty_loop() {
+        let mml = parse("[]").unwrap();
+        assert_eq!(mml.commands.len(), 0);
+    }
+
+    #[test]
+    fn parse_loop_with_rest() {
+        let mml = parse("[R4 C4]2").unwrap();
+        assert_eq!(mml.commands.len(), 4);
+        assert!(matches!(mml.commands[0], Command::Rest(_)));
+        assert!(matches!(mml.commands[1], Command::Note(_)));
+        assert!(matches!(mml.commands[2], Command::Rest(_)));
+        assert!(matches!(mml.commands[3], Command::Note(_)));
+    }
+
+    #[test]
+    fn parse_loop_with_octave_change() {
+        let mml = parse("[>C <C]2").unwrap();
+        assert_eq!(mml.commands.len(), 8);
+        assert!(matches!(mml.commands[0], Command::OctaveUp));
+        assert!(matches!(mml.commands[1], Command::Note(_)));
+        assert!(matches!(mml.commands[2], Command::OctaveDown));
+        assert!(matches!(mml.commands[3], Command::Note(_)));
+        assert!(matches!(mml.commands[4], Command::OctaveUp));
+        assert!(matches!(mml.commands[5], Command::Note(_)));
+        assert!(matches!(mml.commands[6], Command::OctaveDown));
+        assert!(matches!(mml.commands[7], Command::Note(_)));
+    }
+
+    #[test]
+    fn parse_multiple_loops() {
+        let mml = parse("[CD]2 [EF]2").unwrap();
+        assert_eq!(mml.commands.len(), 8);
+    }
+
+    #[test]
+    fn parse_loop_with_tempo_and_volume() {
+        let mml = parse("T120 [CD]2 V10").unwrap();
+        assert_eq!(mml.commands.len(), 6);
+        assert!(matches!(mml.commands[0], Command::Tempo(_)));
+        assert!(matches!(mml.commands[1], Command::Note(_)));
+        assert!(matches!(mml.commands[4], Command::Note(_)));
+        assert!(matches!(mml.commands[5], Command::Volume(_)));
+    }
+
+    #[test]
+    fn test_expand_loop_basic() {
+        let commands = vec![
+            Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: None,
+                dots: 0,
+            }),
+            Command::Note(Note {
+                pitch: Pitch::D,
+                accidental: Accidental::Natural,
+                duration: None,
+                dots: 0,
+            }),
+        ];
+        let expanded = expand_loop(&commands, None, 3);
+        assert_eq!(expanded.len(), 6);
+    }
+
+    #[test]
+    fn test_expand_loop_with_escape() {
+        let commands = vec![
+            Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: None,
+                dots: 0,
+            }),
+            Command::Note(Note {
+                pitch: Pitch::D,
+                accidental: Accidental::Natural,
+                duration: None,
+                dots: 0,
+            }),
+            Command::Note(Note {
+                pitch: Pitch::E,
+                accidental: Accidental::Natural,
+                duration: None,
+                dots: 0,
+            }),
+        ];
+        let expanded = expand_loop(&commands, Some(1), 2);
+        assert_eq!(expanded.len(), 4);
+    }
+
+    #[test]
+    fn test_expand_loop_empty() {
+        let commands: Vec<Command> = vec![];
+        let expanded = expand_loop(&commands, None, 5);
+        assert_eq!(expanded.len(), 0);
+    }
+
+    #[test]
+    fn test_expand_loop_escape_at_start() {
+        let commands = vec![Command::Note(Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: None,
+            dots: 0,
+        })];
+        let expanded = expand_loop(&commands, Some(0), 3);
+        assert_eq!(expanded.len(), 2);
     }
 }

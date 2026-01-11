@@ -96,9 +96,7 @@ fn get_current_version(conn: &Connection) -> Result<i64, DbError> {
 fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
     let count: i32 = conn
         .query_row(
-            &format!(
-                "SELECT count(*) FROM pragma_table_info('{table}') WHERE name='{column}'"
-            ),
+            &format!("SELECT count(*) FROM pragma_table_info('{table}') WHERE name='{column}'"),
             [],
             |row| row.get(0),
         )
@@ -132,10 +130,7 @@ pub fn migrate(conn: &Connection) -> Result<(), DbError> {
             .unwrap_or(0);
 
         if row_count > 0 {
-            tx.execute(
-                "UPDATE schema_version SET version = ?",
-                [CURRENT_VERSION],
-            )?;
+            tx.execute("UPDATE schema_version SET version = ?", [CURRENT_VERSION])?;
         } else {
             tx.execute(
                 "INSERT INTO schema_version (version) VALUES (?)",

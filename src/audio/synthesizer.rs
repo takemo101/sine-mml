@@ -54,6 +54,9 @@ impl Synthesizer {
                 Command::Tempo(t) => bpm = t.value,
                 Command::DefaultLength(l) => default_length = l.value,
                 Command::Volume(v) => current_velocity = v.value,
+                Command::Loop { .. } => {
+                    unreachable!("Loop commands should be expanded before synthesis")
+                }
             }
         }
 
