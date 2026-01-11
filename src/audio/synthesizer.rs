@@ -146,6 +146,60 @@ impl Synthesizer {
         // Use new noise-based click generation
         generate_noise_click(f64::from(self.sample_rate), f32::from(self.volume) / 100.0)
     }
+
+    /// メトロノームサンプルを演奏サンプルにミックス
+    ///
+    /// 指定されたビート間隔でクリックサンプルを生成し、演奏サンプルに加算ミックスする。
+    /// クリック位置は演奏の先頭から等間隔で配置される。
+    ///
+    /// # Arguments
+    /// * `samples` - 演奏サンプル（可変参照、この関数でクリックが加算される）
+    /// * `sample_rate` - サンプリングレート（Hz）
+    /// * `bpm` - テンポ（BPM）
+    /// * `beat` - ビート値（4, 8, 16）
+    /// * `volume` - メトロノーム音量（0.0〜1.0）
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    pub fn mix_metronome(
+        &self,
+        samples: &mut [f32],
+        sample_rate: f64,
+        bpm: u16,
+        beat: u8,
+        volume: f32,
+    ) {
+        // 1. クリック間隔計算
+        let interval_sec = beat_interval_seconds(bpm, beat);
+        let interval_samples = (interval_sec * sample_rate as f32) as usize;
+
+        // 2. クリックサンプル生成
+        let click_samples = generate_noise_click(sample_rate, volume);
+        let click_len = click_samples.len();
+
+        // 3. ミックス処理
+        let mut position = 0;
+        while position < samples.len() {
+            // クリックサンプルを加算ミックス
+            for (i, &click_sample) in click_samples.iter().enumerate() {
+                let sample_index = position + i;
+                if sample_index >= samples.len() {
+                    break;
+                }
+                samples[sample_index] += click_sample;
+            }
+
+            // 次のクリック位置へ
+            position += interval_samples;
+
+            // 無限ループ防止
+            if interval_samples == 0 {
+                break;
+            }
+        }
+    }
 }
 
 /// PCMサンプルをノーマライズ（最大絶対値を1.0以下に制限）
