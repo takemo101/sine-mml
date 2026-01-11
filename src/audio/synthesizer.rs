@@ -170,6 +170,28 @@ pub fn normalize_samples(samples: &mut [f32]) {
     }
 }
 
+/// ビート値から1クリックあたりの秒数を計算
+///
+/// # Arguments
+/// * `bpm` - テンポ（BPM: Beats Per Minute）、30〜300の範囲
+/// * `beat` - ビート値（4, 8, 16のみ有効）
+///
+/// # Returns
+/// クリック間隔（秒）
+///
+/// # Panics
+/// `beat`が4, 8, 16以外の場合にパニックします。
+/// ただし、CLIレベルでclapによりバリデーション済みのため、実行時には発生しません。
+#[must_use]
+pub fn beat_interval_seconds(bpm: u16, beat: u8) -> f32 {
+    match beat {
+        4 => 60.0 / f32::from(bpm),  // 4分音符: 1拍あたりの秒数
+        8 => 30.0 / f32::from(bpm),  // 8分音符: 0.5拍あたりの秒数
+        16 => 15.0 / f32::from(bpm), // 16分音符: 0.25拍あたりの秒数
+        _ => unreachable!("beat value is validated by clap"),
+    }
+}
+
 /// ノイズベースのクリックサンプルを生成
 ///
 /// fundspの`noise()`関数によりホワイトノイズを生成し、
@@ -345,5 +367,43 @@ mod tests {
             max_high > max_low * 2.0,
             "High volume should be significantly louder than low volume"
         );
+    }
+
+    // beat_interval_seconds tests (Issue #30)
+    #[test]
+    fn test_beat_interval_4beat_at_60bpm() {
+        // 60 BPM, 4ビート: 60.0 / 60 = 1.0秒
+        assert!((beat_interval_seconds(60, 4) - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_4beat_at_120bpm() {
+        // 120 BPM, 4ビート: 60.0 / 120 = 0.5秒
+        assert!((beat_interval_seconds(120, 4) - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_4beat_at_240bpm() {
+        // 240 BPM, 4ビート: 60.0 / 240 = 0.25秒
+        assert!((beat_interval_seconds(240, 4) - 0.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_8beat_at_120bpm() {
+        // 120 BPM, 8ビート: 30.0 / 120 = 0.25秒
+        assert!((beat_interval_seconds(120, 8) - 0.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_16beat_at_120bpm() {
+        // 120 BPM, 16ビート: 15.0 / 120 = 0.125秒
+        assert!((beat_interval_seconds(120, 16) - 0.125).abs() < 0.001);
+    }
+
+    #[test]
+    #[should_panic(expected = "validated by clap")]
+    fn test_beat_interval_invalid_beat() {
+        // 無効なビート値（5）はパニックする
+        let _ = beat_interval_seconds(120, 5);
     }
 }
