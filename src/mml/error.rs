@@ -21,6 +21,26 @@ pub enum ParseError {
         position: usize,
     },
     EmptyInput,
+    UnmatchedLoopStart {
+        position: usize,
+    },
+    UnmatchedLoopEnd {
+        position: usize,
+    },
+    InvalidLoopCount {
+        value: u16,
+        range: (u16, u16),
+        position: usize,
+    },
+    NestedLoop {
+        position: usize,
+    },
+    LoopEscapeOutsideLoop {
+        position: usize,
+    },
+    MultipleEscapePoints {
+        position: usize,
+    },
 }
 
 impl std::fmt::Display for ParseError {
@@ -64,6 +84,44 @@ impl std::fmt::Display for ParseError {
             }
             Self::EmptyInput => {
                 write!(f, "空のMML文字列が入力されました")
+            }
+            Self::UnmatchedLoopStart { position } => {
+                write!(
+                    f,
+                    "位置 {position}: ループの開始括弧 '[' に対応する ']' がありません"
+                )
+            }
+            Self::UnmatchedLoopEnd { position } => {
+                write!(
+                    f,
+                    "位置 {position}: ループの終了括弧 ']' に対応する '[' がありません"
+                )
+            }
+            Self::InvalidLoopCount {
+                value,
+                range,
+                position,
+            } => {
+                write!(
+                    f,
+                    "位置 {position}: ループ回数 {value} は範囲 {}-{} を超えています",
+                    range.0, range.1
+                )
+            }
+            Self::NestedLoop { position } => {
+                write!(f, "位置 {position}: ネストしたループは非対応です")
+            }
+            Self::LoopEscapeOutsideLoop { position } => {
+                write!(
+                    f,
+                    "位置 {position}: 脱出ポイント ':' がループ外で使用されています"
+                )
+            }
+            Self::MultipleEscapePoints { position } => {
+                write!(
+                    f,
+                    "位置 {position}: ループ内に複数の脱出ポイント ':' があります"
+                )
             }
         }
     }
