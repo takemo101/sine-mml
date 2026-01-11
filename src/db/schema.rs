@@ -97,8 +97,7 @@ fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
     let count: i32 = conn
         .query_row(
             &format!(
-                "SELECT count(*) FROM pragma_table_info('{}') WHERE name='{}'",
-                table, column
+                "SELECT count(*) FROM pragma_table_info('{table}') WHERE name='{column}'"
             ),
             [],
             |row| row.get(0),
