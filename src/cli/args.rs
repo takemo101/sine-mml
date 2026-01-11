@@ -78,11 +78,15 @@ pub fn validate_volume(v: &str) -> Result<f32, String> {
     }
 }
 
+/// Validates that the metronome beat is 4, 8, or 16.
+///
+/// # Errors
+/// Returns an error if the input string cannot be parsed as a u8 or if the value is not 4, 8, or 16.
 pub fn validate_metronome_beat(v: &str) -> Result<u8, String> {
     let val: u8 = v.parse().map_err(|_| "Invalid number".to_string())?;
     match val {
         4 | 8 | 16 => Ok(val),
-        _ => Err(format!("メトロノームビートは 4, 8, 16 のいずれかを指定してください（指定値: {}）", val)),
+        _ => Err(format!("メトロノームビートは 4, 8, 16 のいずれかを指定してください（指定値: {val}）")),
     }
 }
 
