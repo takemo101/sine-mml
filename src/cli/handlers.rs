@@ -57,10 +57,22 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     let sample_rate = 44100;
 
     let mut synth = audio::synthesizer::Synthesizer::new(sample_rate, volume_u8, waveform_type);
-    let buffer = synth
+    let mut buffer = synth
         .synthesize(&ast)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("音声合成に失敗しました")?;
+
+    if args.metronome {
+        let bpm = ast.get_tempo();
+        synth.mix_metronome(
+            &mut buffer,
+            f64::from(sample_rate),
+            bpm,
+            args.metronome_beat,
+            args.metronome_volume,
+        );
+        audio::synthesizer::normalize_samples(&mut buffer);
+    }
 
     // 4. 履歴保存（ループ前に実行）
     let history_id_opt = if should_save {
