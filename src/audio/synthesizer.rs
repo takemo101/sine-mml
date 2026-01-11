@@ -432,7 +432,7 @@ mod tests {
         // 加算ミックスのため、クリック位置のサンプルは元の値と異なるはず
         // (0.5 + クリック音 != 0.5)
         assert!(
-            (samples[0] - original_value).abs() > 0.01,
+            (samples[0] - original_value).abs() > 0.01_f32,
             "クリックが加算されているはず"
         );
     }
