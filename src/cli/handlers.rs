@@ -324,9 +324,10 @@ mod tests {
             history_id: None,
             waveform: Waveform::Sine,
             volume: 1.0,
-            bpm: 120,
             loop_play: false,
             metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
         };
         assert!(determine_should_save(&args));
     }
@@ -338,9 +339,10 @@ mod tests {
             history_id: Some(1),
             waveform: Waveform::Sine,
             volume: 1.0,
-            bpm: 120,
             loop_play: false,
             metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
         };
         assert!(!determine_should_save(&args));
     }

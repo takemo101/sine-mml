@@ -86,7 +86,9 @@ pub fn validate_metronome_beat(v: &str) -> Result<u8, String> {
     let val: u8 = v.parse().map_err(|_| "Invalid number".to_string())?;
     match val {
         4 | 8 | 16 => Ok(val),
-        _ => Err(format!("メトロノームビートは 4, 8, 16 のいずれかを指定してください（指定値: {val}）")),
+        _ => Err(format!(
+            "メトロノームビートは 4, 8, 16 のいずれかを指定してください（指定値: {val}）"
+        )),
     }
 }
 
@@ -167,7 +169,8 @@ mod tests {
     #[test]
     fn test_metronome_beat_valid() {
         for beat in ["4", "8", "16"] {
-            let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-beat", beat]);
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-beat", beat]);
             assert!(result.is_ok(), "Should accept metronome-beat {}", beat);
             let args = match result.unwrap().command {
                 Command::Play(args) => args,
@@ -180,7 +183,8 @@ mod tests {
     #[test]
     fn test_metronome_beat_invalid() {
         for beat in ["5", "12", "32", "abc"] {
-            let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-beat", beat]);
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-beat", beat]);
             assert!(result.is_err(), "Should reject metronome-beat {}", beat);
         }
     }
@@ -188,7 +192,8 @@ mod tests {
     #[test]
     fn test_metronome_volume_valid() {
         for vol in ["0.0", "0.5", "1.0"] {
-            let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-volume", vol]);
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-volume", vol]);
             assert!(result.is_ok(), "Should accept metronome-volume {}", vol);
             let args = match result.unwrap().command {
                 Command::Play(args) => args,
@@ -201,7 +206,8 @@ mod tests {
     #[test]
     fn test_metronome_volume_out_of_range() {
         for vol in ["-0.1", "1.1", "abc"] {
-            let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-volume", vol]);
+            let result =
+                Cli::try_parse_from(&["sine-mml", "play", "CDE", "--metronome-volume", vol]);
             assert!(result.is_err(), "Should reject metronome-volume {}", vol);
         }
     }
