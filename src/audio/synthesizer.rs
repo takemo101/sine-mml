@@ -185,9 +185,9 @@ pub fn normalize_samples(samples: &mut [f32]) {
 #[must_use]
 pub fn beat_interval_seconds(bpm: u16, beat: u8) -> f32 {
     match beat {
-        4 => 60.0 / bpm as f32,  // 4分音符: 1拍あたりの秒数
-        8 => 30.0 / bpm as f32,  // 8分音符: 0.5拍あたりの秒数
-        16 => 15.0 / bpm as f32, // 16分音符: 0.25拍あたりの秒数
+        4 => 60.0 / f32::from(bpm),  // 4分音符: 1拍あたりの秒数
+        8 => 30.0 / f32::from(bpm),  // 8分音符: 0.5拍あたりの秒数
+        16 => 15.0 / f32::from(bpm), // 16分音符: 0.25拍あたりの秒数
         _ => unreachable!("beat value is validated by clap"),
     }
 }
