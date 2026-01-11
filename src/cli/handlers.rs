@@ -4,6 +4,10 @@ use crate::{audio, db, mml};
 use anyhow::{bail, Context, Result};
 use comfy_table::Table;
 
+fn determine_should_save(args: &PlayArgs) -> bool {
+    false // TODO: Implement correctly
+}
+
 /// playサブコマンドのハンドラー
 ///
 /// # Errors
