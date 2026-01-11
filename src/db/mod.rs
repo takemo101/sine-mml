@@ -184,6 +184,14 @@ impl Database {
     /// Returns `DbError` if:
     /// - Entry with the specified ID is not found.
     /// - Database query fails.
+    pub fn clear_all(&self) -> Result<usize, DbError> {
+        let deleted = self
+            .conn
+            .execute("DELETE FROM history", [])
+            .map_err(|e| DbError::SaveFailed(e.to_string()))?;
+        Ok(deleted)
+    }
+
     pub fn get_by_id(&self, id: i64) -> Result<HistoryEntry, DbError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, mml, waveform, volume, bpm, note, created_at FROM history WHERE id = ?",
@@ -410,5 +418,27 @@ mod tests {
         let entry = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 500, None);
         let result = db.save(&entry);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_clear_all_empty_db() {
+        let db = Database::open_in_memory().unwrap();
+        let deleted = db.clear_all().unwrap();
+        assert_eq!(deleted, 0);
+    }
+
+    #[test]
+    fn test_clear_all_with_entries() {
+        let db = Database::open_in_memory().unwrap();
+        for i in 0..3 {
+            let entry = HistoryEntry::new(format!("MML{i}"), Waveform::Sine, 0.5, 120, None);
+            db.save(&entry).unwrap();
+        }
+
+        let deleted = db.clear_all().unwrap();
+        assert_eq!(deleted, 3);
+
+        let list = db.list(None).unwrap();
+        assert!(list.is_empty());
     }
 }

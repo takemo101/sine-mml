@@ -14,6 +14,8 @@ pub enum Command {
     Play(PlayArgs),
     History,
     Export(ExportArgs),
+    /// Clear all playback history
+    ClearHistory,
 }
 
 #[derive(Args, Debug)]
