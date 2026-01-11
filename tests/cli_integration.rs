@@ -127,11 +127,12 @@ fn test_clear_history_invalid_input() {
 // ============================================================================
 
 /// TC-023-E-001: ループ構文でのCLI再生
+/// Note: Uses short loop with fast tempo to avoid CI timeout
 #[test]
 fn test_cli_play_with_loop_syntax() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
-        .arg("[CDEF]3")
+        .arg("T300 L16 [C]2") // Fast tempo, 16th notes, 2 repeats
         .timeout(std::time::Duration::from_secs(5));
     cmd.assert().code(predicate::in_iter([0i32]));
 }
@@ -157,21 +158,23 @@ fn test_cli_nested_loop_error() {
 }
 
 /// TC-024-E-002: 小文字とループの組み合わせ
+/// Note: Uses short loop with fast tempo to avoid CI timeout
 #[test]
 fn test_cli_lowercase_with_loop() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
-        .arg("[cdef]3")
+        .arg("T300 L16 [c]2") // Fast tempo, 16th notes, 2 repeats
         .timeout(std::time::Duration::from_secs(5));
     cmd.assert().code(predicate::in_iter([0i32]));
 }
 
 /// TC-023-E-004: 脱出ポイント付きループでのCLI再生
+/// Note: Uses short loop with fast tempo to avoid CI timeout
 #[test]
 fn test_cli_loop_with_escape_point() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
-        .arg("[CD:EF]2")
+        .arg("T300 L16 [C:D]2") // Fast tempo, 16th notes, 2 repeats with escape
         .timeout(std::time::Duration::from_secs(5));
     cmd.assert().code(predicate::in_iter([0i32]));
 }
