@@ -177,7 +177,6 @@ impl Synthesizer {
 
         // 2. クリックサンプル生成
         let click_samples = generate_noise_click(sample_rate, volume);
-        let click_len = click_samples.len();
 
         // 3. ミックス処理
         let mut position = 0;
