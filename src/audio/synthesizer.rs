@@ -346,4 +346,42 @@ mod tests {
             "High volume should be significantly louder than low volume"
         );
     }
+
+    // beat_interval_seconds tests (Issue #30)
+    #[test]
+    fn test_beat_interval_4beat_at_60bpm() {
+        // 60 BPM, 4ビート: 60.0 / 60 = 1.0秒
+        assert!((beat_interval_seconds(60, 4) - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_4beat_at_120bpm() {
+        // 120 BPM, 4ビート: 60.0 / 120 = 0.5秒
+        assert!((beat_interval_seconds(120, 4) - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_4beat_at_240bpm() {
+        // 240 BPM, 4ビート: 60.0 / 240 = 0.25秒
+        assert!((beat_interval_seconds(240, 4) - 0.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_8beat_at_120bpm() {
+        // 120 BPM, 8ビート: 30.0 / 120 = 0.25秒
+        assert!((beat_interval_seconds(120, 8) - 0.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_beat_interval_16beat_at_120bpm() {
+        // 120 BPM, 16ビート: 15.0 / 120 = 0.125秒
+        assert!((beat_interval_seconds(120, 16) - 0.125).abs() < 0.001);
+    }
+
+    #[test]
+    #[should_panic(expected = "validated by clap")]
+    fn test_beat_interval_invalid_beat() {
+        // 無効なビート値（5）はパニックする
+        beat_interval_seconds(120, 5);
+    }
 }
