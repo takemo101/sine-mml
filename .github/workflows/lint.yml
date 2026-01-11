@@ -29,8 +29,7 @@ jobs:
           key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run Clippy
-        # TODO: 既存コードのClippy警告修正後に -D warnings に戻す
-        run: cargo clippy --all-targets --all-features -- -W clippy::all
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   rustfmt:
     runs-on: ubuntu-latest
