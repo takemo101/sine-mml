@@ -40,18 +40,35 @@ pub struct HistoryEntry {
     pub waveform: Waveform,
     pub volume: f32,
     pub bpm: u16,
+    pub note: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
 impl HistoryEntry {
+    /// Creates a new `HistoryEntry` with an optional note.
+    ///
+    /// # Arguments
+    ///
+    /// * `mml` - The MML string
+    /// * `waveform` - The waveform type
+    /// * `volume` - The volume (0.0 to 1.0)
+    /// * `bpm` - The tempo in BPM
+    /// * `note` - Optional note/memo for this entry (max 500 characters)
     #[must_use]
-    pub fn new(mml: String, waveform: Waveform, volume: f32, bpm: u16) -> Self {
+    pub fn new(
+        mml: String,
+        waveform: Waveform,
+        volume: f32,
+        bpm: u16,
+        note: Option<String>,
+    ) -> Self {
         Self {
             id: None,
             mml,
             waveform,
             volume,
             bpm,
+            note,
             created_at: Utc::now(),
         }
     }
@@ -77,12 +94,49 @@ mod tests {
     }
 
     #[test]
-    fn test_history_entry_new() {
-        let entry = HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120);
+    fn test_history_entry_new_with_note() {
+        let entry = HistoryEntry::new(
+            "CDE".to_string(),
+            Waveform::Sine,
+            0.5,
+            120,
+            Some("My melody".to_string()),
+        );
         assert_eq!(entry.mml, "CDE");
         assert_eq!(entry.waveform, Waveform::Sine);
         assert_eq!(entry.volume, 0.5);
         assert_eq!(entry.bpm, 120);
+        assert_eq!(entry.note, Some("My melody".to_string()));
         assert!(entry.id.is_none());
+    }
+
+    #[test]
+    fn test_history_entry_new_without_note() {
+        let entry = HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120, None);
+        assert_eq!(entry.mml, "CDE");
+        assert_eq!(entry.waveform, Waveform::Sine);
+        assert_eq!(entry.volume, 0.5);
+        assert_eq!(entry.bpm, 120);
+        assert_eq!(entry.note, None);
+        assert!(entry.id.is_none());
+    }
+
+    #[test]
+    fn test_history_entry_new_with_empty_note() {
+        let entry =
+            HistoryEntry::new("CDE".to_string(), Waveform::Sine, 0.5, 120, Some(String::new()));
+        assert_eq!(entry.note, Some(String::new()));
+    }
+
+    #[test]
+    fn test_history_entry_new_with_utf8_note() {
+        let entry = HistoryEntry::new(
+            "CDE".to_string(),
+            Waveform::Sine,
+            0.5,
+            120,
+            Some("🎵 私のメロディ 🎶".to_string()),
+        );
+        assert_eq!(entry.note, Some("🎵 私のメロディ 🎶".to_string()));
     }
 }
