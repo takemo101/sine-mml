@@ -5,7 +5,7 @@ use anyhow::{bail, Context, Result};
 use comfy_table::Table;
 
 fn determine_should_save(args: &PlayArgs) -> bool {
-    false // TODO: Implement correctly
+    matches!((&args.mml, args.history_id), (Some(_), None))
 }
 
 /// playサブコマンドのハンドラー
