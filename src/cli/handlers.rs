@@ -235,8 +235,41 @@ fn export_logic(db: &db::Database, args: &ExportArgs) -> Result<()> {
 
 pub fn clear_history_handler() -> Result<()> {
     let db = db::Database::init()?;
-    let deleted = db.clear_all().context("履歴の削除に失敗しました")?;
-    output::success(&format!("✓ {deleted}件の履歴を削除しました"));
+    clear_history_logic(&db, &mut std::io::stdin().lock(), &mut std::io::stdout())
+}
+
+fn clear_history_logic<R: std::io::BufRead, W: std::io::Write>(
+    db: &db::Database,
+    stdin: &mut R,
+    stdout: &mut W,
+) -> Result<()> {
+    let count = db.count().context("履歴件数の取得に失敗しました")?;
+
+    if count == 0 {
+        writeln!(stdout, "履歴がありません。")?;
+        return Ok(());
+    }
+
+    write!(stdout, "全ての履歴（{count}件）を削除しますか？ (y/n): ")?;
+    stdout.flush()?;
+
+    let mut input = String::new();
+    stdin.read_line(&mut input)?;
+    let input = input.trim().to_lowercase();
+
+    match input.as_str() {
+        "y" | "yes" => {
+            db.clear_all().context("履歴の削除に失敗しました")?;
+            output::success("全ての履歴を削除しました。");
+        }
+        "n" | "no" => {
+            writeln!(stdout, "キャンセルしました。")?;
+        }
+        _ => {
+            bail!("無効な入力です。'y' または 'n' を入力してください。");
+        }
+    }
+
     Ok(())
 }
 
@@ -440,5 +473,76 @@ mod tests {
             note: None,
         };
         assert!(!determine_should_save(&args));
+    }
+
+    #[test]
+    fn test_clear_history_logic_empty() {
+        let db = db::Database::open_in_memory().unwrap();
+        let mut stdin = std::io::Cursor::new(b"");
+        let mut stdout = Vec::new();
+
+        let result = clear_history_logic(&db, &mut stdin, &mut stdout);
+        assert!(result.is_ok());
+        let output = String::from_utf8(stdout).unwrap();
+        assert!(output.contains("履歴がありません"));
+    }
+
+    #[test]
+    fn test_clear_history_logic_confirm_yes() {
+        let db = db::Database::open_in_memory().unwrap();
+        let entry = db::HistoryEntry::new("CDE".to_string(), db::Waveform::Sine, 0.5, 120, None);
+        db.save(&entry).unwrap();
+
+        let mut stdin = std::io::Cursor::new(b"y\n");
+        let mut stdout = Vec::new();
+
+        let result = clear_history_logic(&db, &mut stdin, &mut stdout);
+        assert!(result.is_ok());
+        assert_eq!(db.count().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_clear_history_logic_confirm_yes_uppercase() {
+        let db = db::Database::open_in_memory().unwrap();
+        let entry = db::HistoryEntry::new("CDE".to_string(), db::Waveform::Sine, 0.5, 120, None);
+        db.save(&entry).unwrap();
+
+        let mut stdin = std::io::Cursor::new(b"YES\n");
+        let mut stdout = Vec::new();
+
+        let result = clear_history_logic(&db, &mut stdin, &mut stdout);
+        assert!(result.is_ok());
+        assert_eq!(db.count().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_clear_history_logic_cancel_no() {
+        let db = db::Database::open_in_memory().unwrap();
+        let entry = db::HistoryEntry::new("CDE".to_string(), db::Waveform::Sine, 0.5, 120, None);
+        db.save(&entry).unwrap();
+
+        let mut stdin = std::io::Cursor::new(b"n\n");
+        let mut stdout = Vec::new();
+
+        let result = clear_history_logic(&db, &mut stdin, &mut stdout);
+        assert!(result.is_ok());
+        assert_eq!(db.count().unwrap(), 1);
+        let output = String::from_utf8(stdout).unwrap();
+        assert!(output.contains("キャンセルしました"));
+    }
+
+    #[test]
+    fn test_clear_history_logic_invalid_input() {
+        let db = db::Database::open_in_memory().unwrap();
+        let entry = db::HistoryEntry::new("CDE".to_string(), db::Waveform::Sine, 0.5, 120, None);
+        db.save(&entry).unwrap();
+
+        let mut stdin = std::io::Cursor::new(b"invalid\n");
+        let mut stdout = Vec::new();
+
+        let result = clear_history_logic(&db, &mut stdin, &mut stdout);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("無効な入力です"));
+        assert_eq!(db.count().unwrap(), 1);
     }
 }

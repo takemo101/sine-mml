@@ -87,3 +87,37 @@ fn test_play_missing_input() {
         .failure()
         .stderr(predicate::str::contains("required"));
 }
+
+/// Test: clear-history command runs without crash
+#[test]
+fn test_clear_history_runs() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("clear-history").write_stdin("n\n");
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+/// Test: clear-history command confirm yes
+#[test]
+fn test_clear_history_confirm_yes() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("clear-history").write_stdin("y\n");
+    cmd.assert().success();
+}
+
+/// Test: clear-history command confirm no
+#[test]
+fn test_clear_history_cancel() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("clear-history").write_stdin("n\n");
+    cmd.assert().success().stdout(
+        predicate::str::contains("キャンセル").or(predicate::str::contains("履歴がありません")),
+    );
+}
+
+/// Test: clear-history command invalid input
+#[test]
+fn test_clear_history_invalid_input() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("clear-history").write_stdin("invalid\n");
+    cmd.assert().code(predicate::in_iter([0i32, 1i32]));
+}

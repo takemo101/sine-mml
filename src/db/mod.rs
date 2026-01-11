@@ -177,19 +177,23 @@ impl Database {
         Ok(entries)
     }
 
-    /// Retrieves a history entry by ID.
+    /// Clears all history entries from the database.
     ///
     /// # Errors
     ///
-    /// Returns `DbError` if:
-    /// - Entry with the specified ID is not found.
-    /// - Database query fails.
+    /// Returns `DbError` if database deletion fails.
     pub fn clear_all(&self) -> Result<usize, DbError> {
         let deleted = self
             .conn
             .execute("DELETE FROM history", [])
             .map_err(|e| DbError::SaveFailed(e.to_string()))?;
         Ok(deleted)
+    }
+
+    pub fn count(&self) -> Result<i64, DbError> {
+        self.conn
+            .query_row("SELECT COUNT(*) FROM history", [], |row| row.get(0))
+            .map_err(|e| DbError::FetchFailed(e.to_string()))
     }
 
     pub fn get_by_id(&self, id: i64) -> Result<HistoryEntry, DbError> {
@@ -440,5 +444,33 @@ mod tests {
 
         let list = db.list(None).unwrap();
         assert!(list.is_empty());
+    }
+
+    #[test]
+    fn test_count_empty_db() {
+        let db = Database::open_in_memory().unwrap();
+        assert_eq!(db.count().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_count_with_entries() {
+        let db = Database::open_in_memory().unwrap();
+        for i in 0..3 {
+            let entry = HistoryEntry::new(format!("MML{i}"), Waveform::Sine, 0.5, 120, None);
+            db.save(&entry).unwrap();
+        }
+        assert_eq!(db.count().unwrap(), 3);
+    }
+
+    #[test]
+    fn test_count_after_clear() {
+        let db = Database::open_in_memory().unwrap();
+        for i in 0..3 {
+            let entry = HistoryEntry::new(format!("MML{i}"), Waveform::Sine, 0.5, 120, None);
+            db.save(&entry).unwrap();
+        }
+        assert_eq!(db.count().unwrap(), 3);
+        db.clear_all().unwrap();
+        assert_eq!(db.count().unwrap(), 0);
     }
 }
