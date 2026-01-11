@@ -146,7 +146,7 @@ fn history_logic(db: &db::Database) -> Result<()> {
     let mut table = Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
-        .set_header(vec!["ID", "MML", "Waveform", "Volume", "BPM", "Created At"]);
+        .set_header(vec!["ID", "MML", "Waveform", "Volume", "Created At"]);
 
     for entry in history {
         table.add_row(vec![
@@ -154,7 +154,6 @@ fn history_logic(db: &db::Database) -> Result<()> {
             truncate_mml(&entry.mml, 50),
             format!("{:?}", entry.waveform),
             format!("{:.1}", entry.volume),
-            entry.bpm.to_string(),
             entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         ]);
     }
