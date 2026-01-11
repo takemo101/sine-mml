@@ -7,11 +7,6 @@
       "command": ["container-use", "stdio"],
       "enabled": true
     },
-    "context7": {
-      "type": "remote",
-      "url": "https://mcp.context7.com/mcp",
-      "enabled": true
-    },
     "sequential-thinking": {
       "type": "local",
       "command": [
