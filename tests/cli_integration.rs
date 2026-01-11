@@ -4,7 +4,7 @@ use predicates::prelude::*;
 /// Test: play command with basic MML
 #[test]
 fn test_play_basic_mml() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
         .arg("C")
         .timeout(std::time::Duration::from_secs(5));
@@ -18,7 +18,7 @@ fn test_play_basic_mml() {
 /// Test: history command
 #[test]
 fn test_history_command() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("history");
     cmd.assert().success();
 }
@@ -26,7 +26,7 @@ fn test_history_command() {
 /// Test: --help flag
 #[test]
 fn test_help_flag() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("--help");
     cmd.assert()
         .success()
@@ -36,7 +36,7 @@ fn test_help_flag() {
 /// Test: --version flag  
 #[test]
 fn test_version_flag() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("--version");
     cmd.assert()
         .success()
@@ -46,7 +46,7 @@ fn test_version_flag() {
 /// Test: --bpm option removed (breaking change)
 #[test]
 fn test_bpm_option_removed() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
         .arg("C")
         .arg("--bpm")
@@ -59,7 +59,7 @@ fn test_bpm_option_removed() {
 /// Test: invalid metronome beat value
 #[test]
 fn test_invalid_metronome_beat() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
         .arg("C")
         .arg("--metronome-beat")
@@ -72,7 +72,7 @@ fn test_invalid_metronome_beat() {
 /// Test: valid metronome options
 #[test]
 fn test_valid_metronome_options() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
         .arg("C")
         .arg("--metronome")
@@ -87,7 +87,7 @@ fn test_valid_metronome_options() {
 /// Test: play command missing input
 #[test]
 fn test_play_missing_input() {
-    let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play");
     cmd.assert()
         .failure()
