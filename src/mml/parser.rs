@@ -787,4 +787,140 @@ mod tests {
         let expanded = expand_loop(&commands, Some(0), 3);
         assert_eq!(expanded.len(), 2);
     }
+
+    // 相対ボリュームテスト (Issue #90, #91)
+    #[test]
+    fn parse_volume_absolute() {
+        let mml = parse("V10 C").unwrap();
+        assert_eq!(mml.commands.len(), 2);
+        assert!(matches!(
+            mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Absolute(10)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_relative_increase() {
+        let mml = parse("V10 C V+2 D").unwrap();
+        assert!(matches!(
+            mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Absolute(10)
+            })
+        ));
+        assert!(matches!(
+            mml.commands[2],
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(2)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_relative_decrease() {
+        let mml = parse("V10 C V-3 D").unwrap();
+        assert!(matches!(
+            mml.commands[2],
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(-3)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_default_increase() {
+        let mml = parse("V10 C V+ D").unwrap();
+        assert!(matches!(
+            mml.commands[2],
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(1)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_default_decrease() {
+        let mml = parse("V10 C V- D").unwrap();
+        assert!(matches!(
+            mml.commands[2],
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(-1)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_clamp_large_relative() {
+        // V+128 should be clamped to +15 at parse time
+        let mml = parse("V+128").unwrap();
+        assert!(matches!(
+            mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(15)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_clamp_large_negative_relative() {
+        // V-128 should be clamped to -15 at parse time
+        let mml = parse("V-128").unwrap();
+        assert!(matches!(
+            mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(-15)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_invalid_absolute_out_of_range() {
+        let err = parse("V20 C").unwrap_err();
+        match err {
+            ParseError::InvalidNumber { value, range, .. } => {
+                assert_eq!(value, 20);
+                assert_eq!(range, (0, 15));
+            }
+            _ => panic!("Expected InvalidNumber"),
+        }
+    }
+
+    #[test]
+    fn parse_volume_zero() {
+        let mml = parse("V0 C").unwrap();
+        assert!(matches!(
+            mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Absolute(0)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_fifteen() {
+        let mml = parse("V15 C").unwrap();
+        assert!(matches!(
+            mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Absolute(15)
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_volume_consecutive_relative() {
+        // V+ V+ V+ should parse as three relative +1
+        let mml = parse("V+ V+ V+").unwrap();
+        assert_eq!(mml.commands.len(), 3);
+        for cmd in &mml.commands {
+            assert!(matches!(
+                cmd,
+                Command::Volume(Volume {
+                    value: VolumeValue::Relative(1)
+                })
+            ));
+        }
+    }
 }
