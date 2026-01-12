@@ -122,6 +122,12 @@ impl std::fmt::Display for ParseError {
                     "位置 {position}: ループ内に複数の脱出ポイント ':' があります"
                 )
             }
+            Self::LoopNestTooDeep { max_depth, position } => {
+                write!(
+                    f,
+                    "位置 {position}: ループのネストが深すぎます（最大{max_depth}階層）"
+                )
+            }
         }
     }
 }
