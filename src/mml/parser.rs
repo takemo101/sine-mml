@@ -923,4 +923,81 @@ mod tests {
             ));
         }
     }
+
+    // ======== Loop Nest Depth Tests (Issue #93) ========
+
+    #[test]
+    fn parse_loop_nest_2_levels() {
+        // 2階層ネスト - 許可
+        let mml = parse("[[C]2]2").unwrap();
+        // 展開: C C × 2 = C C C C (4コマンド)
+        assert_eq!(mml.commands.len(), 4);
+    }
+
+    #[test]
+    fn parse_loop_nest_3_levels() {
+        // 3階層ネスト - 許可
+        let mml = parse("[[[C]2]2]2").unwrap();
+        // 展開: 2^3 = 8コマンド
+        assert_eq!(mml.commands.len(), 8);
+    }
+
+    #[test]
+    fn parse_loop_nest_4_levels() {
+        // 4階層ネスト - 許可
+        let mml = parse("[[[[C]2]2]2]2").unwrap();
+        // 展開: 2^4 = 16コマンド
+        assert_eq!(mml.commands.len(), 16);
+    }
+
+    #[test]
+    fn parse_loop_nest_5_levels() {
+        // 5階層ネスト - 許可（上限）
+        let mml = parse("[[[[[C]2]2]2]2]2").unwrap();
+        // 展開: 2^5 = 32コマンド
+        assert_eq!(mml.commands.len(), 32);
+    }
+
+    #[test]
+    fn parse_loop_nest_6_levels_error() {
+        // 6階層ネスト - エラー
+        let err = parse("[[[[[[C]2]2]2]2]2]2").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::LoopNestTooDeep {
+                max_depth: 5,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_loop_nest_7_levels_error() {
+        // 7階層ネスト - エラー
+        let err = parse("[[[[[[[C]2]2]2]2]2]2]2").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::LoopNestTooDeep {
+                max_depth: 5,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_loop_nest_with_commands() {
+        // 2階層ネストに複数コマンド
+        let mml = parse("[CDE[FG]2AB]2").unwrap();
+        // 内側: FG × 2 = FGFG (4)
+        // 外側: CDE FGFG AB × 2 = 7 × 2 = 14
+        assert_eq!(mml.commands.len(), 14);
+    }
+
+    #[test]
+    fn parse_loop_nest_with_escape_point() {
+        // ネスト内での脱出ポイント
+        let mml = parse("[[CD:EF]2]2").unwrap();
+        // 内側: CDEF CD (6) × 2 = 12
+        assert_eq!(mml.commands.len(), 12);
+    }
 }
