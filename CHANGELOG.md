@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-01-12
+
+### Added
+
+- **タイ記号機能** (`&`)
+  - 音符を連結して長い音を表現（例: `C4&8` = 1.5拍）
+  - 複数連結対応（例: `C4&8&16`）
+  - 休符のタイも対応（例: `R4&8`）
+  - 付点音符との組み合わせ対応
+- **MMLファイル読み込み機能** (`--file`オプション)
+  - `.mml`ファイルからMML文字列を読み込み
+  - `#`で始まる行をコメントとして除去
+  - 空行を無視
+  - UTF-8エンコーディング必須
+  - ファイルサイズ上限1MB（DoS攻撃防止）
+- **相対ボリューム指定** (`V+n`, `V-n`)
+  - 現在のボリュームからの相対的な増減が可能
+  - `V+`/`V-`でデフォルト増減値（±1）
+  - 範囲外の値は0-15にクランプ
+- **ループネスト対応** (最大5階層)
+  - `[ CDE [ FGAB ]2 ]3`のような入れ子ループに対応
+  - ネスト内でも脱出ポイント（`:`）使用可能
+  - 総展開コマンド数上限10,000（DoS攻撃防止）
+- **ループ構文** (`[...]n`)
+  - 繰り返しフレーズを簡潔に記述
+  - 脱出ポイント（`:`）で1番カッコ・2番カッコ的な表現
+- **履歴メモ機能** (`--note`オプション)
+  - 履歴に最大500文字のメモを付与可能
+- **履歴削除機能** (`clear-history`コマンド)
+  - 全履歴を削除（確認プロンプト付き）
+- **小文字MML記述対応**
+  - 小文字でMMLコマンドを記述可能（自動正規化）
+- **メトロノーム機能**: ノイズベースのクリック音生成
+  - `--metronome` フラグでメトロノームを有効化
+  - `--metronome-beat` で4/8/16ビートを選択
+  - `--metronome-volume` で音量調節（0.0〜1.0）
+- **音声ノーマライゼーション**: クリッピング防止機能
+- **E2E統合テスト基盤**: `assert_cmd`を使用したCLIテスト
+- **CI/CDパイプライン**: GitHub Actionsによる自動テスト・ビルド
+
+### Changed
+
+- **デフォルトボリューム**: V10に変更
+- **履歴保存タイミング**: ループ再生時も再生前に履歴を保存するよう変更
+
+### Removed
+
+- **`--bpm`オプション**: MML内の`T`コマンドに統合（Breaking Change）
+  - 移行方法: `--bpm 180` → MML内に`T180`を記述
+
+### Fixed
+
+- メトロノームオプションが機能しない問題を修正
+- オクターブチェンジ（`>` `<`）のパースエラーを修正
+- Clippy警告の修正
+- E2Eテストのタイムアウト問題を修正
+
 ## [2.1.0] - 2026-01-12
 
 ### Added
@@ -97,4 +154,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Justfile with common tasks (build, test, lint, demo)
   - CI workflow configuration
 
+[0.1.1]: https://github.com/takemo101/sine-mml/releases/tag/v0.1.1
 [0.1.0]: https://github.com/takemo101/sine-mml/releases/tag/v0.1.0
