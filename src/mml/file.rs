@@ -297,4 +297,46 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "CDE");
     }
+
+    // TC-027-U-003: 空行の除去
+    #[test]
+    fn test_read_mml_file_removes_empty_lines() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.mml");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "CDEF").unwrap();
+        writeln!(file).unwrap();
+        writeln!(file, "GAB").unwrap();
+        writeln!(file).unwrap();
+
+        let result = read_mml_file(file_path.to_str().unwrap());
+        assert_eq!(result.unwrap(), "CDEF GAB");
+    }
+
+    // TC-027-U-008: UTF-8エンコーディング
+    #[test]
+    fn test_read_mml_file_utf8() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.mml");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "# あいうえお").unwrap();
+        writeln!(file, "CDEF").unwrap();
+
+        let result = read_mml_file(file_path.to_str().unwrap());
+        assert_eq!(result.unwrap(), "CDEF");
+    }
+
+    // TC-027-U-010: 複数行のMML
+    #[test]
+    fn test_read_mml_file_multiline() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.mml");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "T120 L8 O5").unwrap();
+        writeln!(file, "CDEF").unwrap();
+        writeln!(file, "GAB >C").unwrap();
+
+        let result = read_mml_file(file_path.to_str().unwrap());
+        assert_eq!(result.unwrap(), "T120 L8 O5 CDEF GAB >C");
+    }
 }
