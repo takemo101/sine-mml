@@ -60,6 +60,15 @@ sine-mml play "T120 [CDEF]3 G2"  # CDEFを3回繰り返してからG
 # 脱出ポイント付きループ（v2.1新機能）
 sine-mml play "[CD:EF]2"  # 1回目: CDEF、2回目: CD（EFをスキップ）
 
+# ネストしたループ（v2.1新機能、最大5階層）
+sine-mml play "[ CDE [ FGAB ]2 ]3"  # 内側を2回、外側を3回
+
+# MMLファイルから再生（v2.1新機能）
+sine-mml play --file song.mml
+
+# 相対ボリュームで音量を変化（v2.1新機能）
+sine-mml play "V10 C V+2 D V-3 E"  # V10 → V12 → V9
+
 # 履歴にメモを付けて再生（v2.1新機能）
 sine-mml play "CDEFGAB" --note "練習用スケール"
 
