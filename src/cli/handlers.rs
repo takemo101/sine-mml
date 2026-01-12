@@ -26,19 +26,23 @@ fn determine_should_save(args: &PlayArgs) -> bool {
 pub fn play_handler(args: PlayArgs) -> Result<()> {
     // 1. 引数の検証とMML取得
     let should_save = determine_should_save(&args);
-    let mml_string = match (&args.mml, args.history_id) {
-        (Some(mml), None) => mml.clone(),
-        (None, Some(id)) => {
+    let mml_string = match (&args.mml, args.history_id, &args.file) {
+        (Some(mml), None, None) => mml.clone(),
+        (None, Some(id), None) => {
             let db = db::Database::init()?;
             let entry = db
                 .get_by_id(id)
                 .with_context(|| format!("[CLI-E002] 履歴ID {id} が見つかりません"))?;
             entry.mml
         }
-        (None, None) => {
-            bail!("[CLI-E001] play コマンドでは、MML文字列または --history-id のいずれか一方を指定してください");
+        (None, None, Some(file_path)) => {
+            // Read MML from file
+            mml::read_mml_file(file_path)?
         }
-        (Some(_), Some(_)) => {
+        (None, None, None) => {
+            bail!("[CLI-E001] play コマンドでは、MML文字列、--history-id、または --file のいずれか一方を指定してください");
+        }
+        _ => {
             unreachable!("clap should prevent this")
         }
     };
