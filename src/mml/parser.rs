@@ -1065,4 +1065,42 @@ mod tests {
             }
         ));
     }
+
+    // TC-028-U-009: 複数の相対値指定
+    #[test]
+    fn test_volume_multiple_relative() {
+        let input = "V5 C V+10 D V-8 E";
+        let mml = parse(input).unwrap();
+
+        // パース成功を確認（6コマンド: V5, C, V+10, D, V-8, E）
+        assert_eq!(mml.commands.len(), 6);
+
+        // V5 - 絶対値
+        assert!(matches!(
+            &mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Absolute(5)
+            })
+        ));
+
+        // V+10 - 相対値（クランプされて15になる、ただしパーサー時点では+10）
+        match &mml.commands[2] {
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(delta),
+            }) => {
+                assert_eq!(*delta, 10);
+            }
+            _ => panic!("Expected Relative volume"),
+        }
+
+        // V-8 - 相対値
+        match &mml.commands[4] {
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(delta),
+            }) => {
+                assert_eq!(*delta, -8);
+            }
+            _ => panic!("Expected Relative volume"),
+        }
+    }
 }
