@@ -147,14 +147,25 @@ fn test_cli_loop_count_error() {
         .stderr(predicate::str::contains("InvalidLoopCount"));
 }
 
-/// TC-023-E-003: ネストループエラーのCLI表示
+/// TC-023-E-003: ネストループが許可されることを確認 (Issue #93)
+/// ネストしたループは最大5階層まで許可されるようになった
 #[test]
-fn test_cli_nested_loop_error() {
+fn test_cli_nested_loop_allowed() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
-    cmd.arg("play").arg("[[CDEF]2]3");
+    cmd.arg("play")
+        .arg("T300 L16 [[C]2]2") // 2階層ネスト、高速再生
+        .timeout(std::time::Duration::from_secs(5));
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+/// TC-029-E-001: 6階層ネストでエラーが発生することを確認 (Issue #93)
+#[test]
+fn test_cli_loop_nest_too_deep_error() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play").arg("[[[[[[C]2]2]2]2]2]2"); // 6階層ネスト
     cmd.assert()
         .failure()
-        .stderr(predicate::str::contains("NestedLoop"));
+        .stderr(predicate::str::contains("LoopNestTooDeep"));
 }
 
 /// TC-024-E-002: 小文字とループの組み合わせ
