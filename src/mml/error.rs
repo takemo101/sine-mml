@@ -48,9 +48,24 @@ pub enum ParseError {
         max_commands: usize,
         actual: usize,
     },
+    /// MML-E012: タイの後に有効な音価がない
+    InvalidTieSequence {
+        position: usize,
+    },
+    /// MML-E013: タイで連結する音符の音高が異なる
+    TiePitchMismatch {
+        expected: String,
+        found: String,
+        position: usize,
+    },
+    /// MML-E014: タイチェーンが空（トップレベルの&）
+    EmptyTieChain {
+        position: usize,
+    },
 }
 
 impl std::fmt::Display for ParseError {
+    #[allow(clippy::too_many_lines)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnexpectedToken {
@@ -145,6 +160,28 @@ impl std::fmt::Display for ParseError {
                     "ループ展開後のコマンド数が多すぎます（最大{max_commands}、実際: {actual}）"
                 )
             }
+            Self::InvalidTieSequence { position } => {
+                write!(
+                    f,
+                    "位置 {position}: タイ記号 '&' の後に有効な音価がありません"
+                )
+            }
+            Self::TiePitchMismatch {
+                expected,
+                found,
+                position,
+            } => {
+                write!(
+                    f,
+                    "位置 {position}: タイで連結する音符の音高が異なります（期待: {expected}, 実際: {found}）"
+                )
+            }
+            Self::EmptyTieChain { position } => {
+                write!(
+                    f,
+                    "位置 {position}: タイ記号 '&' が音符/休符なしで使用されています"
+                )
+            }
         }
     }
 }
@@ -207,5 +244,39 @@ mod tests {
     fn display_empty_input() {
         let err = ParseError::EmptyInput;
         assert_eq!(err.to_string(), "空のMML文字列が入力されました");
+    }
+
+    // TC-030-010: タイ記号エラーテスト - InvalidTieSequence
+    #[test]
+    fn display_invalid_tie_sequence() {
+        let err = ParseError::InvalidTieSequence { position: 3 };
+        assert_eq!(
+            err.to_string(),
+            "位置 3: タイ記号 '&' の後に有効な音価がありません"
+        );
+    }
+
+    // TC-030-010: タイ記号エラーテスト - TiePitchMismatch
+    #[test]
+    fn display_tie_pitch_mismatch() {
+        let err = ParseError::TiePitchMismatch {
+            expected: "C".to_string(),
+            found: "D".to_string(),
+            position: 3,
+        };
+        assert_eq!(
+            err.to_string(),
+            "位置 3: タイで連結する音符の音高が異なります（期待: C, 実際: D）"
+        );
+    }
+
+    // TC-030-013: タイ記号エラーテスト - EmptyTieChain
+    #[test]
+    fn display_empty_tie_chain() {
+        let err = ParseError::EmptyTieChain { position: 0 };
+        assert_eq!(
+            err.to_string(),
+            "位置 0: タイ記号 '&' が音符/休符なしで使用されています"
+        );
     }
 }
