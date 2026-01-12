@@ -353,6 +353,7 @@ mod tests {
         let args = PlayArgs {
             mml: Some("C".to_string()),
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 0.5,
             loop_play: false,
