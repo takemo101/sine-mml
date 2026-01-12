@@ -81,6 +81,12 @@ sine-mml play "T180 CDEFGAB"
 # ループ構文を使用（v2.1新機能）
 sine-mml play "[CDEF]3 G2"  # CDEFを3回繰り返してからG
 
+# MMLファイルから再生（v2.1新機能）
+sine-mml play --file song.mml
+
+# 相対ボリュームで音量を変化（v2.1新機能）
+sine-mml play "V10 C V+2 D V-3 E"  # V10 → V12 → V9
+
 # 履歴にメモを付けて再生（v2.1新機能）
 sine-mml play "CDEFGAB" --note "練習用スケール"
 
