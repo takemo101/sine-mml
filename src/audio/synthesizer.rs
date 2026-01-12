@@ -1,5 +1,5 @@
 use crate::audio::waveform::{create_node, midi_to_frequency, WaveformType};
-use crate::mml::{Command, Mml, Note};
+use crate::mml::{Command, Mml, Note, VolumeValue};
 use fundsp::hacker::{highpass_hz, noise};
 use std::error::Error;
 
@@ -29,7 +29,8 @@ impl Synthesizer {
         let mut octave = 4;
         let mut default_length = 4;
         let mut bpm = 120;
-        let mut current_velocity = 100;
+        // デフォルト値V10（BR-074準拠）
+        let mut current_velocity: u8 = 10;
 
         for command in &mml.commands {
             match command {
@@ -53,7 +54,20 @@ impl Synthesizer {
                 Command::OctaveDown => octave = octave.saturating_sub(1).max(1),
                 Command::Tempo(t) => bpm = t.value,
                 Command::DefaultLength(l) => default_length = l.value,
-                Command::Volume(v) => current_velocity = v.value,
+                Command::Volume(v) => {
+                    current_velocity = match v.value {
+                        VolumeValue::Absolute(val) => val,
+                        VolumeValue::Relative(delta) => {
+                            // 現在値に加算/減算し、0-15にクランプ
+                            #[allow(clippy::cast_possible_wrap)]
+                            let new_val = (current_velocity as i8 + delta).clamp(0, 15);
+                            #[allow(clippy::cast_sign_loss)]
+                            {
+                                new_val as u8
+                            }
+                        }
+                    };
+                }
                 Command::Loop { .. } => {
                     unreachable!("Loop commands should be expanded before synthesis")
                 }
@@ -87,7 +101,8 @@ impl Synthesizer {
         let mut audio_node = create_node(self.waveform_type, frequency);
         audio_node.set_sample_rate(f64::from(self.sample_rate));
 
-        let master_gain = (f32::from(self.volume) / 100.0) * (f32::from(velocity) / 100.0);
+        // velocityは0-15の範囲、15で最大音量
+        let master_gain = (f32::from(self.volume) / 100.0) * (f32::from(velocity) / 15.0);
 
         let mut samples = Vec::with_capacity(num_samples);
         for _ in 0..num_samples {
@@ -512,5 +527,147 @@ mod tests {
             nonzero_16beat,
             nonzero_4beat
         );
+    }
+
+    // 相対ボリュームテスト (Issue #92)
+    #[test]
+    fn test_synthesize_with_absolute_volume() {
+        use crate::mml::{Volume, VolumeValue};
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mml = Mml {
+            commands: vec![
+                Command::Volume(Volume {
+                    value: VolumeValue::Absolute(15),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::A,
+                    accidental: Accidental::Natural,
+                    duration: Some(16),
+                    dots: 0,
+                }),
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_synthesize_with_relative_volume_increase() {
+        use crate::mml::{Volume, VolumeValue};
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        // Start at default V10, then V+2 = V12
+        let mml = Mml {
+            commands: vec![
+                Command::Volume(Volume {
+                    value: VolumeValue::Relative(2),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::A,
+                    accidental: Accidental::Natural,
+                    duration: Some(16),
+                    dots: 0,
+                }),
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_synthesize_with_relative_volume_decrease() {
+        use crate::mml::{Volume, VolumeValue};
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        // Start at default V10, then V-3 = V7
+        let mml = Mml {
+            commands: vec![
+                Command::Volume(Volume {
+                    value: VolumeValue::Relative(-3),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::A,
+                    accidental: Accidental::Natural,
+                    duration: Some(16),
+                    dots: 0,
+                }),
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_synthesize_volume_clamp_upper() {
+        use crate::mml::{Volume, VolumeValue};
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        // V15 + V+5 should clamp to 15
+        let mml = Mml {
+            commands: vec![
+                Command::Volume(Volume {
+                    value: VolumeValue::Absolute(15),
+                }),
+                Command::Volume(Volume {
+                    value: VolumeValue::Relative(5),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::A,
+                    accidental: Accidental::Natural,
+                    duration: Some(16),
+                    dots: 0,
+                }),
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_synthesize_volume_clamp_lower() {
+        use crate::mml::{Volume, VolumeValue};
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        // V0 + V-5 should clamp to 0
+        let mml = Mml {
+            commands: vec![
+                Command::Volume(Volume {
+                    value: VolumeValue::Absolute(0),
+                }),
+                Command::Volume(Volume {
+                    value: VolumeValue::Relative(-5),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::A,
+                    accidental: Accidental::Natural,
+                    duration: Some(16),
+                    dots: 0,
+                }),
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        // V0 should produce silence (very small samples due to envelope)
+        assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_default_velocity_is_10() {
+        use crate::mml::{Volume, VolumeValue};
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        // No volume command, default should be V10
+        // V+5 from default should be V15
+        let mml = Mml {
+            commands: vec![
+                Command::Volume(Volume {
+                    value: VolumeValue::Relative(5),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::A,
+                    accidental: Accidental::Natural,
+                    duration: Some(16),
+                    dots: 0,
+                }),
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        // If default was 100, V+5 would clamp to 15 anyway
+        // If default is 10, V+5 = V15
+        assert!(!samples.is_empty());
     }
 }

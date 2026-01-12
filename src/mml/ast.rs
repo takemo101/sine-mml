@@ -108,9 +108,35 @@ pub struct DefaultLength {
     pub value: u8,
 }
 
+/// ボリューム値の種類
+///
+/// # バリアント
+/// - `Absolute(u8)`: 絶対値（0-15）
+/// - `Relative(i8)`: 相対値（-15〜+15）
+///
+/// # 例
+/// ```ignore
+/// // V10 の場合
+/// VolumeValue::Absolute(10)
+///
+/// // V+2 の場合
+/// VolumeValue::Relative(2)
+///
+/// // V-3 の場合
+/// VolumeValue::Relative(-3)
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumeValue {
+    /// 絶対値（0-15）
+    Absolute(u8),
+    /// 相対値（-15〜+15）
+    Relative(i8),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Volume {
-    pub value: u8,
+    /// 絶対値（0-15）または相対値（-15〜+15）
+    pub value: VolumeValue,
 }
 
 impl Note {
