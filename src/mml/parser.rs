@@ -28,9 +28,13 @@ pub fn expand_loop(
     expanded
 }
 
+/// 最大ループネスト深度
+const MAX_LOOP_DEPTH: usize = 5;
+
 pub struct Parser {
     tokens: Vec<TokenWithPos>,
     current: usize,
+    loop_depth: usize,
 }
 
 impl Parser {
