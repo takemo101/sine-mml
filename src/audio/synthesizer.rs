@@ -311,7 +311,7 @@ pub fn generate_noise_click(sample_rate: f64, volume: f32) -> Vec<f32> {
 mod tests {
     use super::*;
     use crate::audio::waveform::WaveformType;
-    use crate::mml::{Accidental, Command, Mml, Note, Pitch, Tempo};
+    use crate::mml::{Accidental, Command, Duration, Mml, Note, Pitch, Tempo, TiedDuration};
 
     #[test]
     fn test_synthesizer_creation() {
@@ -327,8 +327,7 @@ mod tests {
         let note = Note {
             pitch: Pitch::A,
             accidental: Accidental::Natural,
-            duration: Some(4), // Quarter note
-            dots: 0,
+            duration: TiedDuration::new(Duration::new(Some(4), 0)), // Quarter note
         };
         let mml = Mml {
             commands: vec![Command::Tempo(Tempo { value: 120 }), Command::Note(note)],
@@ -542,8 +541,7 @@ mod tests {
                 Command::Note(Note {
                     pitch: Pitch::A,
                     accidental: Accidental::Natural,
-                    duration: Some(16),
-                    dots: 0,
+                    duration: TiedDuration::new(Duration::new(Some(16), 0)),
                 }),
             ],
         };
@@ -564,8 +562,7 @@ mod tests {
                 Command::Note(Note {
                     pitch: Pitch::A,
                     accidental: Accidental::Natural,
-                    duration: Some(16),
-                    dots: 0,
+                    duration: TiedDuration::new(Duration::new(Some(16), 0)),
                 }),
             ],
         };
@@ -586,8 +583,7 @@ mod tests {
                 Command::Note(Note {
                     pitch: Pitch::A,
                     accidental: Accidental::Natural,
-                    duration: Some(16),
-                    dots: 0,
+                    duration: TiedDuration::new(Duration::new(Some(16), 0)),
                 }),
             ],
         };
@@ -611,8 +607,7 @@ mod tests {
                 Command::Note(Note {
                     pitch: Pitch::A,
                     accidental: Accidental::Natural,
-                    duration: Some(16),
-                    dots: 0,
+                    duration: TiedDuration::new(Duration::new(Some(16), 0)),
                 }),
             ],
         };
@@ -636,8 +631,7 @@ mod tests {
                 Command::Note(Note {
                     pitch: Pitch::A,
                     accidental: Accidental::Natural,
-                    duration: Some(16),
-                    dots: 0,
+                    duration: TiedDuration::new(Duration::new(Some(16), 0)),
                 }),
             ],
         };
@@ -660,8 +654,7 @@ mod tests {
                 Command::Note(Note {
                     pitch: Pitch::A,
                     accidental: Accidental::Natural,
-                    duration: Some(16),
-                    dots: 0,
+                    duration: TiedDuration::new(Duration::new(Some(16), 0)),
                 }),
             ],
         };
