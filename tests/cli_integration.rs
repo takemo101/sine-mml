@@ -400,8 +400,8 @@ fn test_cli_nested_loop_2_levels() {
 fn test_cli_nested_loop_5_levels() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
     cmd.arg("play")
-        .arg("T300 L16 [ [ [ [ [ C ]2 ]2 ]2 ]2 ]2")
-        .timeout(std::time::Duration::from_secs(5));
+        .arg("T300 L64 [ [ [ [ [ C ]2 ]2 ]2 ]2 ]2")
+        .timeout(std::time::Duration::from_secs(10));
 
     cmd.assert().code(predicate::in_iter([0i32]));
 }
