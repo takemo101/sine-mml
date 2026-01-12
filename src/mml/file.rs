@@ -259,7 +259,7 @@ mod tests {
         let file_path = dir.path().join("whitespace.mml");
         let mut file = File::create(&file_path).unwrap();
         writeln!(file, "   ").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "\t").unwrap();
 
         let result = read_mml_file(file_path.to_str().unwrap());
