@@ -278,6 +278,18 @@ impl Note {
         midi_note.clamp(0, 127) as u8
     }
 
+    /// 音符の総音長を拍数で取得
+    ///
+    /// # Arguments
+    /// * `default_duration` - デフォルト音価（省略時）
+    ///
+    /// # Returns
+    /// 総音長（拍数）。4分音符 = 1拍として計算。
+    #[must_use]
+    pub fn total_beats(&self, default_duration: u8) -> f64 {
+        self.duration.total_beats(default_duration)
+    }
+
     #[must_use]
     pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
         self.duration.total_duration_in_seconds(bpm, default_length)
@@ -285,6 +297,18 @@ impl Note {
 }
 
 impl Rest {
+    /// 休符の総音長を拍数で取得
+    ///
+    /// # Arguments
+    /// * `default_duration` - デフォルト音価（省略時）
+    ///
+    /// # Returns
+    /// 総音長（拍数）。4分音符 = 1拍として計算。
+    #[must_use]
+    pub fn total_beats(&self, default_duration: u8) -> f64 {
+        self.duration.total_beats(default_duration)
+    }
+
     #[must_use]
     pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
         self.duration.total_duration_in_seconds(bpm, default_length)
@@ -548,5 +572,97 @@ mod tests {
         duration.add_tie(Duration::new(Some(2), 0));
         let total = duration.total_beats(4);
         assert!((total - 6.0).abs() < 0.001);
+    }
+
+    // Note.total_beats() tests (Issue #128)
+    #[test]
+    fn note_total_beats_quarter() {
+        // C4 = 1拍
+        let note = Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: TiedDuration::new(Duration::new(Some(4), 0)),
+        };
+        let beats = note.total_beats(4);
+        assert!((beats - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn note_total_beats_with_tie() {
+        // C4&8 = 1.5拍
+        let mut tied = TiedDuration::new(Duration::new(Some(4), 0));
+        tied.add_tie(Duration::new(Some(8), 0));
+        let note = Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: tied,
+        };
+        let beats = note.total_beats(4);
+        assert!((beats - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn note_total_beats_dotted() {
+        // C4. = 1.5拍
+        let note = Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: TiedDuration::new(Duration::new(Some(4), 1)),
+        };
+        let beats = note.total_beats(4);
+        assert!((beats - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn note_total_beats_default_duration() {
+        // C (default=8) = 0.5拍
+        let note = Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: TiedDuration::new(Duration::new(None, 0)),
+        };
+        let beats = note.total_beats(8);
+        assert!((beats - 0.5).abs() < 0.001);
+    }
+
+    // Rest.total_beats() tests (Issue #128)
+    #[test]
+    fn rest_total_beats_quarter() {
+        // R4 = 1拍
+        let rest = Rest {
+            duration: TiedDuration::new(Duration::new(Some(4), 0)),
+        };
+        let beats = rest.total_beats(4);
+        assert!((beats - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn rest_total_beats_with_tie() {
+        // R4&8 = 1.5拍
+        let mut tied = TiedDuration::new(Duration::new(Some(4), 0));
+        tied.add_tie(Duration::new(Some(8), 0));
+        let rest = Rest { duration: tied };
+        let beats = rest.total_beats(4);
+        assert!((beats - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn rest_total_beats_dotted() {
+        // R4. = 1.5拍
+        let rest = Rest {
+            duration: TiedDuration::new(Duration::new(Some(4), 1)),
+        };
+        let beats = rest.total_beats(4);
+        assert!((beats - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn rest_total_beats_default_duration() {
+        // R (default=8) = 0.5拍
+        let rest = Rest {
+            duration: TiedDuration::new(Duration::new(None, 0)),
+        };
+        let beats = rest.total_beats(8);
+        assert!((beats - 0.5).abs() < 0.001);
     }
 }
