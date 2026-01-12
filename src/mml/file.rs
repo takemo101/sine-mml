@@ -243,7 +243,7 @@ mod tests {
         let file_path = dir.path().join("empty.mml");
         let mut file = File::create(&file_path).unwrap();
         writeln!(file, "# Only comments").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
 
         let result = read_mml_file(file_path.to_str().unwrap());
         assert!(result.is_err());
