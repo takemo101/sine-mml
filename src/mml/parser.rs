@@ -212,10 +212,6 @@ impl Parser {
         matches!(self.peek().token, Token::LoopEscape)
     }
 
-    fn check_loop_start(&self) -> bool {
-        matches!(self.peek().token, Token::LoopStart)
-    }
-
     fn check_number(&self) -> bool {
         matches!(self.peek().token, Token::Number(_))
     }
