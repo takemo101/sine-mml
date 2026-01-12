@@ -402,4 +402,107 @@ mod tests {
         let seconds = duration.duration_in_seconds(120, 4);
         assert!((seconds - 0.75).abs() < 0.001);
     }
+
+    // Duration.to_beats() tests (Issue #127)
+    #[test]
+    fn duration_to_beats_quarter_note() {
+        // 4分音符 = 1拍
+        let duration = Duration::new(Some(4), 0);
+        let beats = duration.to_beats(4);
+        assert!((beats - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_to_beats_half_note() {
+        // 2分音符 = 2拍
+        let duration = Duration::new(Some(2), 0);
+        let beats = duration.to_beats(4);
+        assert!((beats - 2.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_to_beats_eighth_note() {
+        // 8分音符 = 0.5拍
+        let duration = Duration::new(Some(8), 0);
+        let beats = duration.to_beats(4);
+        assert!((beats - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_to_beats_sixteenth_note() {
+        // 16分音符 = 0.25拍
+        let duration = Duration::new(Some(16), 0);
+        let beats = duration.to_beats(4);
+        assert!((beats - 0.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_to_beats_dotted_quarter() {
+        // 4分付点音符 = 1.5拍
+        let duration = Duration::new(Some(4), 1);
+        let beats = duration.to_beats(4);
+        assert!((beats - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_to_beats_double_dotted() {
+        // 4分複付点音符 = 1.75拍
+        let duration = Duration::new(Some(4), 2);
+        let beats = duration.to_beats(4);
+        assert!((beats - 1.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_to_beats_with_default_length() {
+        // デフォルト音長が8の場合、Noneは8分音符 = 0.5拍
+        let duration = Duration::new(None, 0);
+        let beats = duration.to_beats(8);
+        assert!((beats - 0.5).abs() < 0.001);
+    }
+
+    // TiedDuration.total_beats() tests (Issue #127)
+    #[test]
+    fn tied_duration_total_beats_simple() {
+        // C4&8: 4分音符(1拍) + 8分音符(0.5拍) = 1.5拍
+        let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
+        duration.add_tie(Duration::new(Some(8), 0));
+        let total = duration.total_beats(4);
+        assert!((total - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn tied_duration_total_beats_multiple_ties() {
+        // C4&8&16: 4分音符(1拍) + 8分音符(0.5拍) + 16分音符(0.25拍) = 1.75拍
+        let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
+        duration.add_tie(Duration::new(Some(8), 0));
+        duration.add_tie(Duration::new(Some(16), 0));
+        let total = duration.total_beats(4);
+        assert!((total - 1.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn tied_duration_total_beats_with_dotted() {
+        // C4.&8: 4分付点音符(1.5拍) + 8分音符(0.5拍) = 2.0拍
+        let mut duration = TiedDuration::new(Duration::new(Some(4), 1));
+        duration.add_tie(Duration::new(Some(8), 0));
+        let total = duration.total_beats(4);
+        assert!((total - 2.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn tied_duration_total_beats_no_ties() {
+        // C4: 4分音符(1拍)
+        let duration = TiedDuration::new(Duration::new(Some(4), 0));
+        let total = duration.total_beats(4);
+        assert!((total - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn tied_duration_total_beats_whole_note() {
+        // C1&2: 全音符(4拍) + 2分音符(2拍) = 6拍
+        let mut duration = TiedDuration::new(Duration::new(Some(1), 0));
+        duration.add_tie(Duration::new(Some(2), 0));
+        let total = duration.total_beats(4);
+        assert!((total - 6.0).abs() < 0.001);
+    }
 }
