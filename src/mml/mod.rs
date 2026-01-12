@@ -32,6 +32,8 @@ pub enum Token {
     LoopEnd,
     /// Loop escape point `:`
     LoopEscape,
+    /// Tie symbol `&` for connecting notes of the same pitch
+    Tie,
     Eof,
 }
 
@@ -148,6 +150,12 @@ pub fn tokenize(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
             ':' => {
                 chars.next();
                 let tok = TokenWithPos::new(Token::LoopEscape, position);
+                position += 1;
+                tok
+            }
+            '&' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::Tie, position);
                 position += 1;
                 tok
             }
@@ -413,5 +421,36 @@ mod tests {
         assert_eq!(tokens[0].position, 0); // [
         assert_eq!(tokens[1].position, 1); // C
         assert_eq!(tokens[2].position, 2); // ]
+    }
+
+    // TC-030-001: タイ記号のトークン化テスト
+    #[test]
+    fn tokenize_tie() {
+        let tokens = tokenize("&").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::Tie);
+        assert_eq!(tokens[0].position, 0);
+        assert_eq!(tokens[1].token, Token::Eof);
+    }
+
+    #[test]
+    fn tokenize_note_with_tie() {
+        let tokens = tokenize("C4&8").unwrap();
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[1].token, Token::Number(4));
+        assert_eq!(tokens[2].token, Token::Tie);
+        assert_eq!(tokens[3].token, Token::Number(8));
+        assert_eq!(tokens[4].token, Token::Eof);
+    }
+
+    #[test]
+    fn tokenize_tie_with_whitespace() {
+        let tokens = tokenize("C4 & 8").unwrap();
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[1].token, Token::Number(4));
+        assert_eq!(tokens[2].token, Token::Tie);
+        assert_eq!(tokens[3].token, Token::Number(8));
     }
 }
