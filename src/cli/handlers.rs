@@ -5,7 +5,11 @@ use anyhow::{bail, Context, Result};
 use comfy_table::Table;
 
 fn determine_should_save(args: &PlayArgs) -> bool {
-    matches!((&args.mml, args.history_id), (Some(_), None))
+    // Save history when MML is provided directly or from file (not from history)
+    matches!(
+        (&args.mml, &args.file, args.history_id),
+        (Some(_), None, None) | (None, Some(_), None)
+    )
 }
 
 /// playサブコマンドのハンドラー
