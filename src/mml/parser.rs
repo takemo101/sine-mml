@@ -1103,4 +1103,42 @@ mod tests {
             _ => panic!("Expected Relative volume"),
         }
     }
+
+    #[test]
+    fn parse_nested_loop_zero_count_error() {
+        // TC-029-U-009: ループ回数0のネスト
+        let err = parse("[ [ C ]0 ]2").unwrap_err();
+        match err {
+            ParseError::InvalidLoopCount { value, range, .. } => {
+                assert_eq!(value, 0);
+                assert_eq!(range, (1, 99));
+            }
+            _ => panic!("Expected InvalidLoopCount, got {:?}", err),
+        }
+    }
+
+    #[test]
+    fn test_loop_depth_tracking() {
+        // TC-029-U-010: ネスト深度カウントの正確性
+        // ネストしたループの後、深度が正しくリセットされることを確認
+        // [ [ C ]2 ]2 -> C x 2 x 2 = 4 commands
+        // [ D ]2      -> D x 2     = 2 commands
+        // Total: 6 commands
+        let input = "[ [ C ]2 ]2 [ D ]2";
+        let mml = parse(input).unwrap();
+
+        assert_eq!(mml.commands.len(), 6);
+    }
+
+    #[test]
+    fn test_loop_depth_reset_after_sequence() {
+        // Multiple sequential nested loops should each work correctly
+        // [[[C]2]2]2 -> 2^3 = 8 commands
+        // [[[D]2]2]2 -> 2^3 = 8 commands
+        // Total: 16 commands
+        let input = "[[[C]2]2]2 [[[D]2]2]2";
+        let mml = parse(input).unwrap();
+
+        assert_eq!(mml.commands.len(), 16);
+    }
 }
