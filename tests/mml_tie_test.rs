@@ -399,7 +399,8 @@ fn test_parse_tie_with_sharp() {
 /// Test tie with flat
 #[test]
 fn test_parse_tie_with_flat() {
-    let mml = parse("Eb4&8").unwrap();
+    // Note: Flat is denoted by '-', not 'b' in this MML implementation
+    let mml = parse("E-4&8").unwrap();
     match &mml.commands[0] {
         Command::Note(n) => {
             assert_eq!(n.pitch, Pitch::E);
