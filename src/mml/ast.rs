@@ -65,6 +65,31 @@ impl Duration {
         Self { value, dots }
     }
 
+    /// 拍数単位での音長を計算
+    ///
+    /// # Arguments
+    /// * `default_duration` - デフォルト音価（省略時）
+    ///
+    /// # Returns
+    /// 音長（拍数）。4分音符 = 1拍として計算。
+    ///
+    /// # Examples
+    /// - 4分音符 (value=4) → 1.0拍
+    /// - 2分音符 (value=2) → 2.0拍
+    /// - 8分音符 (value=8) → 0.5拍
+    /// - 4分付点 (value=4, dots=1) → 1.5拍
+    #[must_use]
+    pub fn to_beats(&self, default_duration: u8) -> f64 {
+        let length = f64::from(self.value.unwrap_or(default_duration));
+        if length == 0.0 {
+            return 0.0;
+        }
+        // 4分音符を1拍とする計算: 4 / length
+        let base_beats = 4.0 / length;
+        let dot_multiplier = f64::from(calculate_dot_multiplier(self.dots));
+        base_beats * dot_multiplier
+    }
+
     /// 秒単位での音長を計算
     #[must_use]
     pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
