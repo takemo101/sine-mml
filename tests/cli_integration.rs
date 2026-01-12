@@ -1,5 +1,8 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
+use std::fs::File;
+use std::io::Write;
+use tempfile::tempdir;
 
 /// Test: play command with basic MML
 #[test]
@@ -264,4 +267,188 @@ fn test_cli_history_displays_note_column() {
         .success()
         .stdout(predicate::str::contains("Note"))
         .stdout(predicate::str::contains("Test note for display"));
+}
+
+// ============================================================================
+// BASIC-CLI-004 E2E Tests (Issue #108)
+// F-027: MMLファイル読み取り, F-028: 相対ボリューム, F-029: ループネスト
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// F-027: MMLファイル読み取り E2E Tests (TC-027-E-xxx)
+// ----------------------------------------------------------------------------
+
+/// TC-027-E-001: --fileオプションでの再生
+#[test]
+fn test_cli_play_with_file() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("test.mml");
+    let mut file = File::create(&file_path).unwrap();
+    writeln!(file, "T300 L16 CDEFGAB").unwrap();
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("--file")
+        .arg(file_path.to_str().unwrap())
+        .timeout(std::time::Duration::from_secs(5));
+
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+/// TC-027-E-002: ファイル未発見エラー
+#[test]
+fn test_cli_file_not_found() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play").arg("--file").arg("nonexistent.mml");
+
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("ファイルが見つかりません"));
+}
+
+/// TC-027-E-003: 不正な拡張子エラー
+#[test]
+fn test_cli_invalid_extension() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("test.txt");
+    let mut file = File::create(&file_path).unwrap();
+    writeln!(file, "CDEFGAB").unwrap();
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("--file")
+        .arg(file_path.to_str().unwrap());
+
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "ファイル拡張子は .mml である必要があります",
+    ));
+}
+
+/// TC-027-E-004: --fileと--noteの組み合わせ
+#[test]
+fn test_cli_file_with_note() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("test.mml");
+    let mut file = File::create(&file_path).unwrap();
+    writeln!(file, "T300 L16 CDEFGAB").unwrap();
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("--file")
+        .arg(file_path.to_str().unwrap())
+        .arg("--note")
+        .arg("File playback test")
+        .timeout(std::time::Duration::from_secs(5));
+
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+// ----------------------------------------------------------------------------
+// F-028: 相対ボリューム指定 E2E Tests (TC-028-E-xxx)
+// ----------------------------------------------------------------------------
+
+/// TC-028-E-001: 相対ボリュームでの再生
+#[test]
+fn test_cli_relative_volume() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("T300 L16 V10 C V+2 D V-3 E")
+        .timeout(std::time::Duration::from_secs(5));
+
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+/// TC-028-E-002: デフォルト増減での再生
+#[test]
+fn test_cli_default_volume_relative() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("T300 L16 V10 C V+ D V- E")
+        .timeout(std::time::Duration::from_secs(5));
+
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+/// TC-028-E-003: 絶対値範囲外エラー
+#[test]
+fn test_cli_volume_out_of_range() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play").arg("V20 C");
+
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("InvalidNumber"));
+}
+
+// ----------------------------------------------------------------------------
+// F-029: ループネスト対応 E2E Tests (TC-029-E-xxx)
+// ----------------------------------------------------------------------------
+
+/// TC-029-E-001: 2階層ネストでの再生
+#[test]
+fn test_cli_nested_loop_2_levels() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("T300 L16 [ CDE [ FG ]2 ]2")
+        .timeout(std::time::Duration::from_secs(5));
+
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+/// TC-029-E-002: 5階層ネストでの再生
+#[test]
+fn test_cli_nested_loop_5_levels() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("T300 L16 [ [ [ [ [ C ]2 ]2 ]2 ]2 ]2")
+        .timeout(std::time::Duration::from_secs(5));
+
+    cmd.assert().code(predicate::in_iter([0i32]));
+}
+
+/// TC-029-E-003: 6階層ネストエラー
+#[test]
+fn test_cli_nested_loop_6_levels_error() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play").arg("[ [ [ [ [ [ C ]2 ]2 ]2 ]2 ]2 ]2");
+
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("LoopNestTooDeep"));
+}
+
+/// TC-029-E-004: ループ展開数超過エラー
+#[test]
+fn test_cli_loop_expanded_too_large() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play").arg("[ [ [ C ]99 ]99 ]99");
+
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("LoopExpandedTooLarge"));
+}
+
+// ----------------------------------------------------------------------------
+// Integration Test: 統合テスト (TC-INT-001)
+// ----------------------------------------------------------------------------
+
+/// TC-INT-001: ファイル読み込み→相対ボリューム→ネストループの組み合わせ
+#[test]
+fn test_cli_integration_file_volume_loop() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("integration.mml");
+    let mut file = File::create(&file_path).unwrap();
+    writeln!(file, "# Integration test").unwrap();
+    writeln!(file, "T300 L16").unwrap();
+    writeln!(file, "V10 [ C V+ D [ E ]2 V- F ]2").unwrap();
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
+    cmd.arg("play")
+        .arg("--file")
+        .arg(file_path.to_str().unwrap())
+        .arg("--note")
+        .arg("Integration test")
+        .timeout(std::time::Duration::from_secs(5));
+
+    cmd.assert().code(predicate::in_iter([0i32]));
 }
