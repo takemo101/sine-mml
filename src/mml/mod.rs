@@ -1,8 +1,10 @@
 mod ast;
 pub mod error;
+pub mod file;
 
 pub use ast::*;
 pub use error::ParseError;
+pub use file::read_mml_file;
 
 pub mod parser;
 pub use parser::*;
