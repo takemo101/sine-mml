@@ -460,6 +460,7 @@ mod tests {
         let args = PlayArgs {
             mml: Some("CDE".to_string()),
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 1.0,
             loop_play: false,
@@ -476,6 +477,7 @@ mod tests {
         let args = PlayArgs {
             mml: None,
             history_id: Some(1),
+            file: None,
             waveform: Waveform::Sine,
             volume: 1.0,
             loop_play: false,
@@ -485,6 +487,23 @@ mod tests {
             note: None,
         };
         assert!(!determine_should_save(&args));
+    }
+
+    #[test]
+    fn test_should_save_flag_file_input() {
+        let args = PlayArgs {
+            mml: None,
+            history_id: None,
+            file: Some("test.mml".to_string()),
+            waveform: Waveform::Sine,
+            volume: 1.0,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note: None,
+        };
+        assert!(determine_should_save(&args));
     }
 
     #[test]
