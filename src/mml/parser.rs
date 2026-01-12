@@ -683,9 +683,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_nested_loop_error() {
-        let err = parse("[[CDEF]2]3").unwrap_err();
-        assert!(matches!(err, ParseError::NestedLoop { .. }));
+    fn parse_nested_loop_allowed() {
+        // ネストしたループは許可されるようになった (Issue #93)
+        let mml = parse("[[CDEF]2]3").unwrap();
+        // 内側: CDEF × 2 = 8, 外側: 8 × 3 = 24
+        assert_eq!(mml.commands.len(), 24);
     }
 
     #[test]
