@@ -278,6 +278,18 @@ impl Note {
         midi_note.clamp(0, 127) as u8
     }
 
+    /// 音符の総音長を拍数で取得
+    ///
+    /// # Arguments
+    /// * `default_duration` - デフォルト音価（省略時）
+    ///
+    /// # Returns
+    /// 総音長（拍数）。4分音符 = 1拍として計算。
+    #[must_use]
+    pub fn total_beats(&self, default_duration: u8) -> f64 {
+        self.duration.total_beats(default_duration)
+    }
+
     #[must_use]
     pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
         self.duration.total_duration_in_seconds(bpm, default_length)
