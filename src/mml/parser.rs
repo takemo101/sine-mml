@@ -3,21 +3,15 @@ use super::{
     TokenWithPos, Volume, VolumeValue,
 };
 
-/// ループコマンドを展開してフラットなコマンド列に変換（再帰対応）
-///
-/// # 引数
-/// - `commands`: ループ内のコマンド列
-/// - `escape_index`: 脱出ポイントのインデックス（Noneの場合は脱出なし）
-/// - `repeat_count`: 繰り返し回数
-///
-/// # 戻り値
-/// 展開されたコマンド列
-#[must_use]
+const MAX_EXPANDED_COMMANDS: usize = 10_000;
+
+/// # Errors
+/// Returns `ParseError::LoopExpandedTooLarge` if expanded commands exceed 10,000
 pub fn expand_loop(
     commands: &[Command],
     escape_index: Option<usize>,
     repeat_count: usize,
-) -> Vec<Command> {
+) -> Result<Vec<Command>, ParseError> {
     let mut expanded = Vec::with_capacity(commands.len() * repeat_count);
 
     for i in 0..repeat_count {
@@ -30,22 +24,28 @@ pub fn expand_loop(
         };
 
         for cmd in &commands[..end_index] {
-            // ネストしたループも再帰的に展開 (Issue #93, #94)
             if let Command::Loop {
                 commands: inner_cmds,
                 escape_index: inner_escape,
                 repeat_count: inner_count,
             } = cmd
             {
-                let inner_expanded = expand_loop(inner_cmds, *inner_escape, *inner_count);
+                let inner_expanded = expand_loop(inner_cmds, *inner_escape, *inner_count)?;
                 expanded.extend(inner_expanded);
             } else {
                 expanded.push(cmd.clone());
             }
+
+            if expanded.len() > MAX_EXPANDED_COMMANDS {
+                return Err(ParseError::LoopExpandedTooLarge {
+                    max_commands: MAX_EXPANDED_COMMANDS,
+                    actual: expanded.len(),
+                });
+            }
         }
     }
 
-    expanded
+    Ok(expanded)
 }
 
 /// 最大ループネスト深度
@@ -87,7 +87,7 @@ impl Parser {
                 repeat_count,
             } = command
             {
-                let expanded = expand_loop(&loop_commands, escape_index, repeat_count);
+                let expanded = expand_loop(&loop_commands, escape_index, repeat_count)?;
                 commands.extend(expanded);
             } else {
                 commands.push(command);
@@ -772,7 +772,7 @@ mod tests {
                 dots: 0,
             }),
         ];
-        let expanded = expand_loop(&commands, None, 3);
+        let expanded = expand_loop(&commands, None, 3).unwrap();
         assert_eq!(expanded.len(), 6);
     }
 
@@ -798,14 +798,14 @@ mod tests {
                 dots: 0,
             }),
         ];
-        let expanded = expand_loop(&commands, Some(1), 2);
+        let expanded = expand_loop(&commands, Some(1), 2).unwrap();
         assert_eq!(expanded.len(), 4);
     }
 
     #[test]
     fn test_expand_loop_empty() {
         let commands: Vec<Command> = vec![];
-        let expanded = expand_loop(&commands, None, 5);
+        let expanded = expand_loop(&commands, None, 5).unwrap();
         assert_eq!(expanded.len(), 0);
     }
 
@@ -817,7 +817,7 @@ mod tests {
             duration: None,
             dots: 0,
         })];
-        let expanded = expand_loop(&commands, Some(0), 3);
+        let expanded = expand_loop(&commands, Some(0), 3).unwrap();
         assert_eq!(expanded.len(), 2);
     }
 
@@ -1026,5 +1026,43 @@ mod tests {
         let mml = parse("[[CD:EF]2]2").unwrap();
         // 内側: CDEF CD (6) × 2 = 12
         assert_eq!(mml.commands.len(), 12);
+    }
+
+    // ======== Loop Expansion Limit Tests (Issue #94) ========
+
+    #[test]
+    fn parse_loop_expansion_within_limit() {
+        // 10,000コマンド以下は許可
+        // [[[C]10]10]99 = 10 × 10 × 99 = 9,900コマンド
+        let mml = parse("[[[C]10]10]99").unwrap();
+        assert_eq!(mml.commands.len(), 9_900);
+    }
+
+    #[test]
+    fn parse_loop_expansion_too_large() {
+        // 10,000コマンド超過でエラー
+        // [[C]99]99 × 2 = 99 × 99 × 2 = 19,602コマンド
+        let err = parse("[[[C]99]99]2").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::LoopExpandedTooLarge {
+                max_commands: 10_000,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_loop_expansion_barely_exceeds() {
+        // ギリギリ超過
+        // [[C]50]50]5 = 50 × 50 × 5 = 12,500コマンド
+        let err = parse("[[[C]50]50]5").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::LoopExpandedTooLarge {
+                max_commands: 10_000,
+                ..
+            }
+        ));
     }
 }

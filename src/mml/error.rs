@@ -43,6 +43,11 @@ pub enum ParseError {
         max_depth: usize,
         position: usize,
     },
+    /// ループ展開後のコマンド数が多すぎる（最大10,000）
+    LoopExpandedTooLarge {
+        max_commands: usize,
+        actual: usize,
+    },
 }
 
 impl std::fmt::Display for ParseError {
@@ -129,6 +134,15 @@ impl std::fmt::Display for ParseError {
                 write!(
                     f,
                     "位置 {position}: ループのネストが深すぎます（最大{max_depth}階層）"
+                )
+            }
+            Self::LoopExpandedTooLarge {
+                max_commands,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "ループ展開後のコマンド数が多すぎます（最大{max_commands}、実際: {actual}）"
                 )
             }
         }
