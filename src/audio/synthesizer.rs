@@ -101,7 +101,8 @@ impl Synthesizer {
         let mut audio_node = create_node(self.waveform_type, frequency);
         audio_node.set_sample_rate(f64::from(self.sample_rate));
 
-        let master_gain = (f32::from(self.volume) / 100.0) * (f32::from(velocity) / 100.0);
+        // velocityは0-15の範囲、15で最大音量
+        let master_gain = (f32::from(self.volume) / 100.0) * (f32::from(velocity) / 15.0);
 
         let mut samples = Vec::with_capacity(num_samples);
         for _ in 0..num_samples {
