@@ -1065,4 +1065,80 @@ mod tests {
             }
         ));
     }
+
+    // TC-028-U-009: 複数の相対値指定
+    #[test]
+    fn test_volume_multiple_relative() {
+        let input = "V5 C V+10 D V-8 E";
+        let mml = parse(input).unwrap();
+
+        // パース成功を確認（6コマンド: V5, C, V+10, D, V-8, E）
+        assert_eq!(mml.commands.len(), 6);
+
+        // V5 - 絶対値
+        assert!(matches!(
+            &mml.commands[0],
+            Command::Volume(Volume {
+                value: VolumeValue::Absolute(5)
+            })
+        ));
+
+        // V+10 - 相対値（クランプされて15になる、ただしパーサー時点では+10）
+        match &mml.commands[2] {
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(delta),
+            }) => {
+                assert_eq!(*delta, 10);
+            }
+            _ => panic!("Expected Relative volume"),
+        }
+
+        // V-8 - 相対値
+        match &mml.commands[4] {
+            Command::Volume(Volume {
+                value: VolumeValue::Relative(delta),
+            }) => {
+                assert_eq!(*delta, -8);
+            }
+            _ => panic!("Expected Relative volume"),
+        }
+    }
+
+    #[test]
+    fn parse_nested_loop_zero_count_error() {
+        // TC-029-U-009: ループ回数0のネスト
+        let err = parse("[ [ C ]0 ]2").unwrap_err();
+        match err {
+            ParseError::InvalidLoopCount { value, range, .. } => {
+                assert_eq!(value, 0);
+                assert_eq!(range, (1, 99));
+            }
+            _ => panic!("Expected InvalidLoopCount, got {:?}", err),
+        }
+    }
+
+    #[test]
+    fn test_loop_depth_tracking() {
+        // TC-029-U-010: ネスト深度カウントの正確性
+        // ネストしたループの後、深度が正しくリセットされることを確認
+        // [ [ C ]2 ]2 -> C x 2 x 2 = 4 commands
+        // [ D ]2      -> D x 2     = 2 commands
+        // Total: 6 commands
+        let input = "[ [ C ]2 ]2 [ D ]2";
+        let mml = parse(input).unwrap();
+
+        assert_eq!(mml.commands.len(), 6);
+    }
+
+    #[test]
+    fn test_loop_depth_reset_after_sequence() {
+        // Multiple sequential nested loops should each work correctly
+        // [[[C]2]2]2 -> 2^3 = 8 commands
+        // [[[D]2]2]2 -> 2^3 = 8 commands
+        // Total: 16 commands
+        let input = "[[[C]2]2]2 [[[D]2]2]2";
+        let mml = parse(input).unwrap();
+
+        assert_eq!(mml.commands.len(), 16);
+    }
 }
