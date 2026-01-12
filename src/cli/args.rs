@@ -22,13 +22,19 @@ pub enum Command {
 #[command(group(
     clap::ArgGroup::new("input")
         .required(true)
-        .args(["mml", "history_id"]),
+        .args(["mml", "history_id", "file"]),
 ))]
 pub struct PlayArgs {
+    /// MML string to play
     pub mml: Option<String>,
 
+    /// Replay from history by ID
     #[arg(long)]
     pub history_id: Option<i64>,
+
+    /// Read MML from file (.mml extension required)
+    #[arg(long, short = 'f', value_name = "FILE")]
+    pub file: Option<String>,
 
     #[arg(short, long, default_value = "sine")]
     pub waveform: Waveform,
