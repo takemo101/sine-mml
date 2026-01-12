@@ -265,12 +265,84 @@ impl Parser {
         Ok(DefaultLength { value })
     }
 
+    /// ボリュームコマンドを解析（絶対値/相対値対応）
+    ///
+    /// # 構文
+    /// - `V<0-15>` - 絶対値指定
+    /// - `V+<n>` - 相対値指定（増加）
+    /// - `V-<n>` - 相対値指定（減少）
+    /// - `V+` - デフォルト増加（+1）
+    /// - `V-` - デフォルト減少（-1）
+    ///
+    /// # エラー
+    /// - `InvalidNumber` - 絶対値が範囲外（0-15以外）
+    ///
+    /// # 注意
+    /// - 相対値の範囲チェックはシンセサイザー側で実施（クランプ処理）
+    /// - `+`と`-`は既存の`Token::Sharp`と`Token::Flat`を流用
     fn parse_volume(&mut self) -> Result<Volume, ParseError> {
-        self.advance(); // Consume Volume
-                        // Range 0-15 verified, safe to cast to u8
-        #[allow(clippy::cast_possible_truncation)]
-        let value = self.consume_number_in_range(0, 15)? as u8;
+        self.advance(); // Consume 'V'
+
+        // 相対指定のチェック
+        let value = if self.check_sharp() {
+            // V+ の場合（Sharpトークンを流用）
+            self.advance(); // Consume '+'
+            let delta = if self.check_number() {
+                // オーバーフロー防止: 15を上限としてクランプしてからキャスト
+                let raw = self.consume_number()?;
+                #[allow(clippy::cast_possible_truncation)]
+                let clamped = raw.min(15) as i8;
+                clamped
+            } else {
+                1 // デフォルト増減値
+            };
+            VolumeValue::Relative(delta)
+        } else if self.check_flat() {
+            // V- の場合（Flatトークンを流用）
+            self.advance(); // Consume '-'
+            let delta = if self.check_number() {
+                // オーバーフロー防止: 15を上限としてクランプしてからキャスト
+                let raw = self.consume_number()?;
+                #[allow(clippy::cast_possible_truncation)]
+                let clamped = -(raw.min(15) as i8);
+                clamped
+            } else {
+                -1 // デフォルト増減値
+            };
+            VolumeValue::Relative(delta)
+        } else {
+            // 絶対値
+            let val = self.consume_number_in_range(0, 15)?;
+            #[allow(clippy::cast_possible_truncation)]
+            VolumeValue::Absolute(val as u8)
+        };
+
         Ok(Volume { value })
+    }
+
+    /// 次のトークンがSharpかチェック
+    fn check_sharp(&self) -> bool {
+        matches!(self.peek().token, Token::Sharp)
+    }
+
+    /// 次のトークンがFlatかチェック
+    fn check_flat(&self) -> bool {
+        matches!(self.peek().token, Token::Flat)
+    }
+
+    /// 数値を消費（範囲チェックなし）
+    fn consume_number(&mut self) -> Result<u16, ParseError> {
+        let token_with_pos = self.peek();
+        if let Token::Number(val) = token_with_pos.token {
+            self.advance();
+            Ok(val)
+        } else {
+            Err(ParseError::UnexpectedToken {
+                expected: "number".to_string(),
+                found: token_with_pos.token.clone(),
+                position: token_with_pos.position,
+            })
+        }
     }
 
     fn consume_number_in_range(&mut self, min: u16, max: u16) -> Result<u16, ParseError> {
