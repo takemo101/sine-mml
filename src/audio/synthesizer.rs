@@ -29,7 +29,8 @@ impl Synthesizer {
         let mut octave = 4;
         let mut default_length = 4;
         let mut bpm = 120;
-        let mut current_velocity = 100;
+        // デフォルト値V10（BR-074準拠）
+        let mut current_velocity: u8 = 10;
 
         for command in &mml.commands {
             match command {
