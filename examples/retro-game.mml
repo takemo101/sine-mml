@@ -1,0 +1,13 @@
+# レトロゲーム風 (Retro Game Style)
+# 矩形波で再生: sine-mml play --file examples/retro-game.mml -w square
+
+T180 L8 O5
+
+# イントロ
+CDEFG4 R8 GFEDC4
+
+# メインフレーズ（脱出ポイント付きループ）
+[CDEF:G4R4]2
+
+# エンディング
+V12 C2

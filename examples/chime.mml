@@ -1,0 +1,8 @@
+# チャイム音 (Westminster Chime)
+# ドアチャイム風のメロディ
+
+T100 L4 O5
+
+E C D G2
+R4
+G D E C2

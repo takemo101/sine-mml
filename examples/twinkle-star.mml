@@ -1,0 +1,15 @@
+# きらきら星 (Twinkle Twinkle Little Star)
+# テンポと音長の設定
+T120 L4
+
+# メロディ
+O4
+CCGGAAG2
+FFEEDDC2
+
+# 繰り返しフレーズ（ループ構文使用）
+[GGFFEED2]2
+
+# エンディング
+CCGGAAG2
+FFEEDDC2

@@ -1,0 +1,10 @@
+# Cメジャースケール (C Major Scale)
+# 上昇と下降
+
+T140 L8 O4
+
+# 上昇スケール
+CDEFGAB>C
+
+# 下降スケール
+<BAGFEDC
