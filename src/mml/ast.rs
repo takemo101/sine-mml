@@ -136,8 +136,7 @@ impl TiedDuration {
 pub struct Note {
     pub pitch: Pitch,
     pub accidental: Accidental,
-    pub duration: Option<u8>,
-    pub dots: u8,
+    pub duration: TiedDuration,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,8 +175,7 @@ pub enum Accidental {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rest {
-    pub duration: Option<u8>,
-    pub dots: u8,
+    pub duration: TiedDuration,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,26 +236,14 @@ impl Note {
 
     #[must_use]
     pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
-        let length = f32::from(self.duration.unwrap_or(default_length));
-        if length == 0.0 {
-            return 0.0;
-        }
-        let base_duration = 240.0 / (f32::from(bpm) * length);
-        let dot_multiplier = calculate_dot_multiplier(self.dots);
-        base_duration * dot_multiplier
+        self.duration.total_duration_in_seconds(bpm, default_length)
     }
 }
 
 impl Rest {
     #[must_use]
     pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
-        let length = f32::from(self.duration.unwrap_or(default_length));
-        if length == 0.0 {
-            return 0.0;
-        }
-        let base_duration = 240.0 / (f32::from(bpm) * length);
-        let dot_multiplier = calculate_dot_multiplier(self.dots);
-        base_duration * dot_multiplier
+        self.duration.total_duration_in_seconds(bpm, default_length)
     }
 }
 
@@ -293,8 +279,7 @@ mod tests {
         let note = Note {
             pitch: Pitch::C,
             accidental: Accidental::Natural,
-            duration: None,
-            dots: 0,
+            duration: TiedDuration::new(Duration::new(None, 0)),
         };
         assert_eq!(note.to_midi_note(4), 60);
     }
@@ -304,8 +289,7 @@ mod tests {
         let note = Note {
             pitch: Pitch::A,
             accidental: Accidental::Natural,
-            duration: None,
-            dots: 0,
+            duration: TiedDuration::new(Duration::new(None, 0)),
         };
         assert_eq!(note.to_midi_note(4), 69);
     }
@@ -315,8 +299,7 @@ mod tests {
         let note = Note {
             pitch: Pitch::C,
             accidental: Accidental::Natural,
-            duration: Some(4),
-            dots: 0,
+            duration: TiedDuration::new(Duration::new(Some(4), 0)),
         };
         let duration = note.duration_in_seconds(120, 4);
         assert!((duration - 0.5).abs() < 0.001);
@@ -327,8 +310,7 @@ mod tests {
         let note = Note {
             pitch: Pitch::C,
             accidental: Accidental::Natural,
-            duration: Some(4),
-            dots: 1,
+            duration: TiedDuration::new(Duration::new(Some(4), 1)),
         };
         let duration = note.duration_in_seconds(120, 4);
         assert!((duration - 0.75).abs() < 0.001);
@@ -342,8 +324,7 @@ mod tests {
                 Command::Note(Note {
                     pitch: Pitch::C,
                     accidental: Accidental::Natural,
-                    duration: Some(4),
-                    dots: 0,
+                    duration: TiedDuration::new(Duration::new(Some(4), 0)),
                 }),
             ],
         };
@@ -356,8 +337,7 @@ mod tests {
             commands: vec![Command::Note(Note {
                 pitch: Pitch::C,
                 accidental: Accidental::Natural,
-                duration: Some(4),
-                dots: 0,
+                duration: TiedDuration::new(Duration::new(Some(4), 0)),
             })],
         };
         assert_eq!(mml.get_tempo(), 120);

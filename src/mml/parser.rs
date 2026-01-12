@@ -1,6 +1,6 @@
 use super::{
-    Accidental, Command, DefaultLength, Mml, Note, Octave, ParseError, Rest, Tempo, Token,
-    TokenWithPos, Volume, VolumeValue,
+    Accidental, Command, DefaultLength, Duration, Mml, Note, Octave, ParseError, Rest, Tempo,
+    TiedDuration, Token, TokenWithPos, Volume, VolumeValue,
 };
 
 const MAX_EXPANDED_COMMANDS: usize = 10_000;
@@ -232,7 +232,7 @@ impl Parser {
             Accidental::Natural
         };
 
-        let duration = if let Token::Number(_) = self.peek().token {
+        let duration_val = if let Token::Number(_) = self.peek().token {
             // Range 1-64 verified, safe to cast to u8
             #[allow(clippy::cast_possible_truncation)]
             Some(self.consume_number_in_range(1, 64)? as u8)
@@ -249,15 +249,14 @@ impl Parser {
         Ok(Note {
             pitch,
             accidental,
-            duration,
-            dots,
+            duration: TiedDuration::new(Duration::new(duration_val, dots)),
         })
     }
 
     fn parse_rest(&mut self) -> Result<Rest, ParseError> {
         self.advance(); // Consume Rest
 
-        let duration = if let Token::Number(_) = self.peek().token {
+        let duration_val = if let Token::Number(_) = self.peek().token {
             // Range 1-64 verified, safe to cast to u8
             #[allow(clippy::cast_possible_truncation)]
             Some(self.consume_number_in_range(1, 64)? as u8)
@@ -271,7 +270,9 @@ impl Parser {
             dots += 1;
         }
 
-        Ok(Rest { duration, dots })
+        Ok(Rest {
+            duration: TiedDuration::new(Duration::new(duration_val, dots)),
+        })
     }
 
     fn parse_octave(&mut self) -> Result<Octave, ParseError> {
@@ -479,8 +480,8 @@ mod tests {
             Command::Note(n) => {
                 assert_eq!(n.pitch, Pitch::C);
                 assert_eq!(n.accidental, Accidental::Natural);
-                assert_eq!(n.duration, None);
-                assert_eq!(n.dots, 0);
+                assert_eq!(n.duration.base.value, None);
+                assert_eq!(n.duration.base.dots, 0);
             }
             _ => panic!("Expected Note"),
         }
@@ -508,7 +509,7 @@ mod tests {
         match &mml.commands[0] {
             Command::Note(n) => {
                 assert_eq!(n.pitch, Pitch::C);
-                assert_eq!(n.duration, Some(4));
+                assert_eq!(n.duration.base.value, Some(4));
             }
             _ => panic!("Expected Note"),
         }
@@ -522,8 +523,8 @@ mod tests {
         match &mml.commands[0] {
             Command::Note(n) => {
                 assert_eq!(n.pitch, Pitch::C);
-                assert_eq!(n.duration, Some(4));
-                assert_eq!(n.dots, 1);
+                assert_eq!(n.duration.base.value, Some(4));
+                assert_eq!(n.duration.base.dots, 1);
             }
             _ => panic!("Expected Note"),
         }
@@ -536,8 +537,8 @@ mod tests {
         assert_eq!(mml.commands.len(), 1);
         match &mml.commands[0] {
             Command::Rest(r) => {
-                assert_eq!(r.duration, Some(4));
-                assert_eq!(r.dots, 0);
+                assert_eq!(r.duration.base.value, Some(4));
+                assert_eq!(r.duration.base.dots, 0);
             }
             _ => panic!("Expected Rest"),
         }
@@ -779,14 +780,12 @@ mod tests {
             Command::Note(Note {
                 pitch: Pitch::C,
                 accidental: Accidental::Natural,
-                duration: None,
-                dots: 0,
+                duration: TiedDuration::new(Duration::new(None, 0)),
             }),
             Command::Note(Note {
                 pitch: Pitch::D,
                 accidental: Accidental::Natural,
-                duration: None,
-                dots: 0,
+                duration: TiedDuration::new(Duration::new(None, 0)),
             }),
         ];
         let expanded = expand_loop(&commands, None, 3).unwrap();
@@ -799,20 +798,17 @@ mod tests {
             Command::Note(Note {
                 pitch: Pitch::C,
                 accidental: Accidental::Natural,
-                duration: None,
-                dots: 0,
+                duration: TiedDuration::new(Duration::new(None, 0)),
             }),
             Command::Note(Note {
                 pitch: Pitch::D,
                 accidental: Accidental::Natural,
-                duration: None,
-                dots: 0,
+                duration: TiedDuration::new(Duration::new(None, 0)),
             }),
             Command::Note(Note {
                 pitch: Pitch::E,
                 accidental: Accidental::Natural,
-                duration: None,
-                dots: 0,
+                duration: TiedDuration::new(Duration::new(None, 0)),
             }),
         ];
         let expanded = expand_loop(&commands, Some(1), 2).unwrap();
@@ -831,8 +827,7 @@ mod tests {
         let commands = vec![Command::Note(Note {
             pitch: Pitch::C,
             accidental: Accidental::Natural,
-            duration: None,
-            dots: 0,
+            duration: TiedDuration::new(Duration::new(None, 0)),
         })];
         let expanded = expand_loop(&commands, Some(0), 3).unwrap();
         assert_eq!(expanded.len(), 2);
