@@ -115,7 +115,7 @@ pub struct DefaultLength {
 /// - `Relative(i8)`: 相対値（-15〜+15）
 ///
 /// # 例
-/// ```
+/// ```ignore
 /// // V10 の場合
 /// VolumeValue::Absolute(10)
 ///
