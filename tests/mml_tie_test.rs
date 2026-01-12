@@ -4,10 +4,10 @@
 //! as specified in REQ-CLI-005_テスト項目書.md (TEST-CLI-005).
 //!
 //! Test categories:
-//! - TC-030-U-001 ~ TC-030-U-003: Token::Tie tokenization
-//! - TC-030-U-004 ~ TC-030-U-008: TiedDuration struct
-//! - TC-030-U-009 ~ TC-030-U-018: parse_note tie parsing
-//! - TC-030-U-019 ~ TC-030-U-022: parse_rest tie parsing
+//! - TC-030-U-001 ~ TC-030-U-003: `Token::Tie` tokenization
+//! - TC-030-U-004 ~ TC-030-U-008: `TiedDuration` struct
+//! - TC-030-U-009 ~ TC-030-U-018: `parse_note` tie parsing
+//! - TC-030-U-019 ~ TC-030-U-022: `parse_rest` tie parsing
 //! - TC-030-U-023 ~ TC-030-U-028: Duration calculations
 
 use sine_mml::mml::{
@@ -67,7 +67,7 @@ fn test_tokenize_tie_position_with_whitespace() {
 // TC-030-U-004 ~ TC-030-U-008: TiedDuration Struct Tests
 // ============================================================================
 
-/// TC-030-U-004: TiedDuration 音長計算（基本）
+/// TC-030-U-004: `TiedDuration` 音長計算（基本）
 #[test]
 fn test_tied_duration_basic() {
     let tied = TiedDuration::new(Duration::new(Some(8), 0));
@@ -76,7 +76,7 @@ fn test_tied_duration_basic() {
     assert!((duration - 0.25).abs() < 0.001);
 }
 
-/// TC-030-U-005: TiedDuration 音長計算（付点）
+/// TC-030-U-005: `TiedDuration` 音長計算（付点）
 #[test]
 fn test_tied_duration_with_dot() {
     let tied = TiedDuration::new(Duration::new(Some(8), 1));
@@ -85,7 +85,7 @@ fn test_tied_duration_with_dot() {
     assert!((duration - 0.375).abs() < 0.001);
 }
 
-/// TC-030-U-006: TiedDuration デフォルト音長使用
+/// TC-030-U-006: `TiedDuration` デフォルト音長使用
 #[test]
 fn test_tied_duration_default_length() {
     let tied = TiedDuration::new(Duration::new(None, 0));
@@ -94,7 +94,7 @@ fn test_tied_duration_default_length() {
     assert!((duration - 0.5).abs() < 0.001);
 }
 
-/// TC-030-U-007: TiedDuration 複数付点
+/// TC-030-U-007: `TiedDuration` 複数付点
 #[test]
 fn test_tied_duration_multiple_dots() {
     let tied = TiedDuration::new(Duration::new(Some(8), 2));
@@ -103,7 +103,7 @@ fn test_tied_duration_multiple_dots() {
     assert!((duration - 0.4375).abs() < 0.001);
 }
 
-/// TC-030-U-008: TiedDuration 異なるBPM
+/// TC-030-U-008: `TiedDuration` 異なるBPM
 #[test]
 fn test_tied_duration_different_bpm() {
     let tied = TiedDuration::new(Duration::new(Some(4), 0));
@@ -112,7 +112,7 @@ fn test_tied_duration_different_bpm() {
     assert!((duration - 1.0).abs() < 0.001);
 }
 
-/// Additional: TiedDuration with ties
+/// Additional: `TiedDuration` with ties
 #[test]
 fn test_tied_duration_with_ties() {
     let mut tied = TiedDuration::new(Duration::new(Some(4), 0));
@@ -206,7 +206,7 @@ fn test_parse_note_tie_with_dot_before() {
 /// TC-030-U-014: 異なる音程のタイ（エラー）
 /// Note: Current implementation doesn't validate pitch matching for ties
 /// because ties only connect durations (C4&8), not notes (C4&D4)
-/// This test verifies that C4&D4 is parsed as C4& (EmptyTieChain error)
+/// This test verifies that C4&D4 is parsed as C4& (`EmptyTieChain` error)
 #[test]
 fn test_parse_note_tie_different_pitch_error() {
     let err = parse("C4&D").unwrap_err();
@@ -222,12 +222,12 @@ fn test_parse_note_tie_no_following_error() {
         ParseError::EmptyTieChain { position } => {
             assert_eq!(position, 2);
         }
-        _ => panic!("Expected EmptyTieChain, got {:?}", err),
+        _ => panic!("Expected EmptyTieChain, got {err:?}"),
     }
 }
 
 /// TC-030-U-017: 音符と休符のタイ（エラー）
-/// Note: Current implementation parses C4&R4 as C4& (EmptyTieChain) then R4
+/// Note: Current implementation parses C4&R4 as C4& (`EmptyTieChain`) then R4
 #[test]
 fn test_parse_note_tie_note_and_rest_error() {
     let err = parse("C4&R").unwrap_err();
@@ -601,7 +601,7 @@ fn test_performance_tie_duration_calculation() {
 // TiedDuration Helper Function Tests
 // ============================================================================
 
-/// Test TiedDuration::new()
+/// Test `TiedDuration::new()`
 #[test]
 fn test_tied_duration_new() {
     let duration = TiedDuration::new(Duration::new(Some(4), 0));
@@ -610,7 +610,7 @@ fn test_tied_duration_new() {
     assert!(duration.tied.is_empty());
 }
 
-/// Test TiedDuration::add_tie()
+/// Test `TiedDuration::add_tie()`
 #[test]
 fn test_tied_duration_add_tie() {
     let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
@@ -619,7 +619,7 @@ fn test_tied_duration_add_tie() {
     assert_eq!(duration.tied[0].value, Some(8));
 }
 
-/// Test TiedDuration::has_ties()
+/// Test `TiedDuration::has_ties()`
 #[test]
 fn test_tied_duration_has_ties() {
     let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
@@ -628,7 +628,7 @@ fn test_tied_duration_has_ties() {
     assert!(duration.has_ties());
 }
 
-/// Test TiedDuration::total_beats() - simple
+/// Test `TiedDuration::total_beats()` - simple
 #[test]
 fn test_tied_duration_total_beats_simple() {
     // C4&8: 4分音符(1拍) + 8分音符(0.5拍) = 1.5拍
@@ -638,7 +638,7 @@ fn test_tied_duration_total_beats_simple() {
     assert!((total - 1.5).abs() < 0.001);
 }
 
-/// Test TiedDuration::total_beats() - multiple ties
+/// Test `TiedDuration::total_beats()` - multiple ties
 #[test]
 fn test_tied_duration_total_beats_multiple() {
     // C4&8&16: 4分音符(1拍) + 8分音符(0.5拍) + 16分音符(0.25拍) = 1.75拍
@@ -649,7 +649,7 @@ fn test_tied_duration_total_beats_multiple() {
     assert!((total - 1.75).abs() < 0.001);
 }
 
-/// Test TiedDuration::total_beats() - with dotted note
+/// Test `TiedDuration::total_beats()` - with dotted note
 #[test]
 fn test_tied_duration_total_beats_dotted() {
     // C4.&8: 4分付点音符(1.5拍) + 8分音符(0.5拍) = 2.0拍
@@ -659,7 +659,7 @@ fn test_tied_duration_total_beats_dotted() {
     assert!((total - 2.0).abs() < 0.001);
 }
 
-/// Test TiedDuration::total_beats() - no ties
+/// Test `TiedDuration::total_beats()` - no ties
 #[test]
 fn test_tied_duration_total_beats_no_ties() {
     // C4: 4分音符(1拍)
@@ -668,7 +668,7 @@ fn test_tied_duration_total_beats_no_ties() {
     assert!((total - 1.0).abs() < 0.001);
 }
 
-/// Test TiedDuration::total_beats() - whole note tie
+/// Test `TiedDuration::total_beats()` - whole note tie
 #[test]
 fn test_tied_duration_total_beats_whole_note() {
     // C1&2: 全音符(4拍) + 2分音符(2拍) = 6拍
@@ -682,7 +682,7 @@ fn test_tied_duration_total_beats_whole_note() {
 // Duration.to_beats() Tests
 // ============================================================================
 
-/// Test Duration::to_beats() - quarter note
+/// Test `Duration::to_beats()` - quarter note
 #[test]
 fn test_duration_to_beats_quarter() {
     let duration = Duration::new(Some(4), 0);
@@ -690,7 +690,7 @@ fn test_duration_to_beats_quarter() {
     assert!((beats - 1.0).abs() < 0.001);
 }
 
-/// Test Duration::to_beats() - half note
+/// Test `Duration::to_beats()` - half note
 #[test]
 fn test_duration_to_beats_half() {
     let duration = Duration::new(Some(2), 0);
@@ -698,7 +698,7 @@ fn test_duration_to_beats_half() {
     assert!((beats - 2.0).abs() < 0.001);
 }
 
-/// Test Duration::to_beats() - eighth note
+/// Test `Duration::to_beats()` - eighth note
 #[test]
 fn test_duration_to_beats_eighth() {
     let duration = Duration::new(Some(8), 0);
@@ -706,7 +706,7 @@ fn test_duration_to_beats_eighth() {
     assert!((beats - 0.5).abs() < 0.001);
 }
 
-/// Test Duration::to_beats() - sixteenth note
+/// Test `Duration::to_beats()` - sixteenth note
 #[test]
 fn test_duration_to_beats_sixteenth() {
     let duration = Duration::new(Some(16), 0);
@@ -714,7 +714,7 @@ fn test_duration_to_beats_sixteenth() {
     assert!((beats - 0.25).abs() < 0.001);
 }
 
-/// Test Duration::to_beats() - dotted quarter
+/// Test `Duration::to_beats()` - dotted quarter
 #[test]
 fn test_duration_to_beats_dotted_quarter() {
     let duration = Duration::new(Some(4), 1);
@@ -722,7 +722,7 @@ fn test_duration_to_beats_dotted_quarter() {
     assert!((beats - 1.5).abs() < 0.001);
 }
 
-/// Test Duration::to_beats() - double dotted
+/// Test `Duration::to_beats()` - double dotted
 #[test]
 fn test_duration_to_beats_double_dotted() {
     let duration = Duration::new(Some(4), 2);
@@ -730,7 +730,7 @@ fn test_duration_to_beats_double_dotted() {
     assert!((beats - 1.75).abs() < 0.001);
 }
 
-/// Test Duration::to_beats() - with default length
+/// Test `Duration::to_beats()` - with default length
 #[test]
 fn test_duration_to_beats_default_length() {
     let duration = Duration::new(None, 0);
@@ -742,7 +742,7 @@ fn test_duration_to_beats_default_length() {
 // Note/Rest.total_beats() Tests
 // ============================================================================
 
-/// Test Note::total_beats() - quarter note
+/// Test `Note::total_beats()` - quarter note
 #[test]
 fn test_note_total_beats_quarter() {
     let mml = parse("C4").unwrap();
@@ -755,7 +755,7 @@ fn test_note_total_beats_quarter() {
     }
 }
 
-/// Test Note::total_beats() - with tie
+/// Test `Note::total_beats()` - with tie
 #[test]
 fn test_note_total_beats_with_tie() {
     let mml = parse("C4&8").unwrap();
@@ -768,7 +768,7 @@ fn test_note_total_beats_with_tie() {
     }
 }
 
-/// Test Note::total_beats() - dotted
+/// Test `Note::total_beats()` - dotted
 #[test]
 fn test_note_total_beats_dotted() {
     let mml = parse("C4.").unwrap();
@@ -781,7 +781,7 @@ fn test_note_total_beats_dotted() {
     }
 }
 
-/// Test Rest::total_beats() - quarter
+/// Test `Rest::total_beats()` - quarter
 #[test]
 fn test_rest_total_beats_quarter() {
     let mml = parse("R4").unwrap();
@@ -794,7 +794,7 @@ fn test_rest_total_beats_quarter() {
     }
 }
 
-/// Test Rest::total_beats() - with tie
+/// Test `Rest::total_beats()` - with tie
 #[test]
 fn test_rest_total_beats_with_tie() {
     let mml = parse("R4&8").unwrap();
