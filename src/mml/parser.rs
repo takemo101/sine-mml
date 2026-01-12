@@ -40,7 +40,11 @@ pub struct Parser {
 impl Parser {
     #[must_use]
     pub fn new(tokens: Vec<TokenWithPos>) -> Self {
-        Self { tokens, current: 0 }
+        Self {
+            tokens,
+            current: 0,
+            loop_depth: 0,
+        }
     }
 
     /// Parses the tokens into an MML AST.
