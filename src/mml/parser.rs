@@ -1190,8 +1190,8 @@ mod tests {
     fn test_consume_tie_failure() {
         let tokens = super::super::tokenize("C4").unwrap();
         let mut parser = Parser::new(tokens);
-        assert!(!parser.consume_tie()); // C is not Tie, should return false
-        // Parser position should not change
+        // C is not Tie, should return false and parser position should not change
+        assert!(!parser.consume_tie());
         assert!(matches!(parser.peek().token, Token::Pitch(_)));
     }
 }
