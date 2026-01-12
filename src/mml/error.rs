@@ -32,13 +32,15 @@ pub enum ParseError {
         range: (u16, u16),
         position: usize,
     },
-    NestedLoop {
-        position: usize,
-    },
     LoopEscapeOutsideLoop {
         position: usize,
     },
     MultipleEscapePoints {
+        position: usize,
+    },
+    /// ループのネストが深すぎる（最大5階層）
+    LoopNestTooDeep {
+        max_depth: usize,
         position: usize,
     },
 }
