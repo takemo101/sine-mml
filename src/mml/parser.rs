@@ -1,6 +1,6 @@
 use super::{
     Accidental, Command, DefaultLength, Mml, Note, Octave, ParseError, Rest, Tempo, Token,
-    TokenWithPos, Volume,
+    TokenWithPos, Volume, VolumeValue,
 };
 
 #[must_use]
