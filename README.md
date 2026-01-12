@@ -16,8 +16,9 @@
 
 - **再生**: MML文字列をターミナルから直接再生
 - **波形選択**: サイン波、ノコギリ波、矩形波から選択
+- **ループ構文**: 繰り返しフレーズを簡潔に記述（v2.1新機能）
 - **メトロノーム**: ノイズベースのクリック音で練習をサポート（v2.0新機能）
-- **履歴管理**: SQLiteによる永続的な演奏履歴の管理
+- **履歴管理**: SQLiteによる永続的な演奏履歴の管理（メモ付き）
 - **エクスポート**: 演奏をWAVファイルとして出力
 
 ---
@@ -51,6 +52,15 @@ sine-mml play "CDEFGAB >C"
 # ノコギリ波でテンポ180で再生（テンポはMML内のTコマンドで指定）
 sine-mml play "T180 L8 O5 C D E F G A B >C" --waveform sawtooth
 
+# ループ構文でフレーズを繰り返し（v2.1新機能）
+sine-mml play "T120 [CDEF]3 G2"  # CDEFを3回繰り返してからG
+
+# 脱出ポイント付きループ（v2.1新機能）
+sine-mml play "[CD:EF]2"  # 1回目: CDEF、2回目: CD（EFをスキップ）
+
+# 履歴にメモを付けて再生（v2.1新機能）
+sine-mml play "CDEFGAB" --note "練習用スケール"
+
 # メトロノーム付きで再生（v2.0新機能）
 sine-mml play "T120 CDEFGAB" --metronome --metronome-beat 8 --metronome-volume 0.5
 
@@ -62,6 +72,9 @@ sine-mml play --history-id 1
 
 # 履歴をWAVファイルとしてエクスポート
 sine-mml export --history-id 1 --output my_music.wav
+
+# 全履歴を削除（v2.1新機能）
+sine-mml clear-history
 ```
 
 詳細な使い方は [USAGE.md](USAGE.md) を参照してください。
@@ -77,6 +90,7 @@ sine-mml export --history-id 1 --output my_music.wav
 | `play` | MML文字列を合成・再生 |
 | `history` | 演奏履歴を表示 |
 | `export` | 履歴をWAVファイルとして出力 |
+| `clear-history` | 全履歴を削除（v2.1新機能） |
 
 ---
 
@@ -94,6 +108,8 @@ sine-mml export --history-id 1 --output my_music.wav
 | `Tn` | テンポ（30-300 BPM） | `T140` |
 | `Vn` | 音量（0-15） | `V10` |
 | `.` | 付点音符 | `C4.` |
+| `[...]n` | ループ（1-99回） | `[CDEF]3`（3回繰り返し） |
+| `[...:...]n` | 脱出ポイント付きループ | `[CD:EF]2`（2回目はEFをスキップ） |
 
 **例**: `"T120 L4 O4 CDE R G >C"` - 120BPMで4分音符のC, D, E、休符、G、次のオクターブのCを再生
 
