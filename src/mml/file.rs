@@ -305,9 +305,9 @@ mod tests {
         let file_path = dir.path().join("test.mml");
         let mut file = File::create(&file_path).unwrap();
         writeln!(file, "CDEF").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "GAB").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
 
         let result = read_mml_file(file_path.to_str().unwrap());
         assert_eq!(result.unwrap(), "CDEF GAB");
