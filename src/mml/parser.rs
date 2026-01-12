@@ -114,8 +114,17 @@ impl Parser {
     }
 
     fn parse_loop(&mut self) -> Result<Command, ParseError> {
+        // ネスト深度チェック (Issue #93)
+        if self.loop_depth >= MAX_LOOP_DEPTH {
+            return Err(ParseError::LoopNestTooDeep {
+                max_depth: MAX_LOOP_DEPTH,
+                position: self.peek().position,
+            });
+        }
+
         let start_pos = self.peek().position;
         self.advance();
+        self.loop_depth += 1; // ネスト深度を増やす
 
         let mut commands = Vec::new();
         let mut escape_index = None;
@@ -123,6 +132,7 @@ impl Parser {
 
         while !self.check_loop_end() {
             if self.is_at_end() {
+                self.loop_depth -= 1; // エラー時も深度を戻す
                 return Err(ParseError::UnmatchedLoopStart {
                     position: start_pos,
                 });
@@ -131,6 +141,7 @@ impl Parser {
             if self.check_loop_escape() {
                 escape_count += 1;
                 if escape_count > 1 {
+                    self.loop_depth -= 1; // エラー時も深度を戻す
                     return Err(ParseError::MultipleEscapePoints {
                         position: self.peek().position,
                     });
@@ -140,17 +151,13 @@ impl Parser {
                 continue;
             }
 
-            if self.check_loop_start() {
-                return Err(ParseError::NestedLoop {
-                    position: self.peek().position,
-                });
-            }
-
+            // ネストしたループを許可（parse_command経由で再帰的にparse_loopが呼ばれる）
             let command = self.parse_command()?;
             commands.push(command);
         }
 
         self.advance();
+        self.loop_depth -= 1; // ネスト深度を戻す
 
         let repeat_count = if self.check_number() {
             let token_with_pos = self.advance();
