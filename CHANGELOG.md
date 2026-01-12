@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-01-12
+
+### Added
+
+- **MMLファイル読み込み機能** (`--file`オプション)
+  - `.mml`ファイルからMML文字列を読み込み
+  - `#`で始まる行をコメントとして除去
+  - 空行を無視
+  - UTF-8エンコーディング必須
+  - ファイルサイズ上限1MB（DoS攻撃防止）
+- **相対ボリューム指定** (`V+n`, `V-n`)
+  - 現在のボリュームからの相対的な増減が可能
+  - `V+`/`V-`でデフォルト増減値（±1）
+  - 範囲外の値は0-15にクランプ
+- **ループネスト対応** (最大5階層)
+  - `[ CDE [ FGAB ]2 ]3`のような入れ子ループに対応
+  - ネスト内でも脱出ポイント（`:`）使用可能
+  - 総展開コマンド数上限10,000（DoS攻撃防止）
+- **ループ構文** (`[...]n`)
+  - 繰り返しフレーズを簡潔に記述
+  - 脱出ポイント（`:`）で1番カッコ・2番カッコ的な表現
+- **履歴メモ機能** (`--note`オプション)
+  - 履歴に最大500文字のメモを付与可能
+- **履歴削除機能** (`clear-history`コマンド)
+  - 全履歴を削除（確認プロンプト付き）
+- **小文字MML記述対応**
+  - 小文字でMMLコマンドを記述可能（自動正規化）
+
+### Changed
+
+- **デフォルトボリューム**: V10に変更
+
 ## [2.0.0] - 2026-01-12
 
 ### Added
