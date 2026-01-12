@@ -171,8 +171,14 @@ mod tests {
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
 
         // history-id + file -> Error
-        let result =
-            Cli::try_parse_from(&["sine-mml", "play", "--history-id", "1", "--file", "test.mml"]);
+        let result = Cli::try_parse_from(&[
+            "sine-mml",
+            "play",
+            "--history-id",
+            "1",
+            "--file",
+            "test.mml",
+        ]);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
