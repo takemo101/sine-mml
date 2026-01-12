@@ -233,7 +233,6 @@ impl Parser {
         };
 
         let duration_val = if let Token::Number(_) = self.peek().token {
-            // Range 1-64 verified, safe to cast to u8
             #[allow(clippy::cast_possible_truncation)]
             Some(self.consume_number_in_range(1, 64)? as u8)
         } else {
@@ -246,10 +245,41 @@ impl Parser {
             dots += 1;
         }
 
+        let mut tied_duration = TiedDuration::new(Duration::new(duration_val, dots));
+
+        while self.consume_tie() {
+            let tie_position = self.previous().position;
+
+            let tied_duration_val = if let Token::Number(_) = self.peek().token {
+                #[allow(clippy::cast_possible_truncation)]
+                Some(self.consume_number_in_range(1, 64).map_err(|_| {
+                    ParseError::InvalidTieSequence {
+                        position: tie_position,
+                    }
+                })? as u8)
+            } else {
+                None
+            };
+
+            if tied_duration_val.is_none() && !matches!(self.peek().token, Token::Dot) {
+                return Err(ParseError::EmptyTieChain {
+                    position: tie_position,
+                });
+            }
+
+            let mut tied_dots = 0;
+            while matches!(self.peek().token, Token::Dot) {
+                self.advance();
+                tied_dots += 1;
+            }
+
+            tied_duration.add_tie(Duration::new(tied_duration_val, tied_dots));
+        }
+
         Ok(Note {
             pitch,
             accidental,
-            duration: TiedDuration::new(Duration::new(duration_val, dots)),
+            duration: tied_duration,
         })
     }
 
@@ -257,7 +287,6 @@ impl Parser {
         self.advance(); // Consume Rest
 
         let duration_val = if let Token::Number(_) = self.peek().token {
-            // Range 1-64 verified, safe to cast to u8
             #[allow(clippy::cast_possible_truncation)]
             Some(self.consume_number_in_range(1, 64)? as u8)
         } else {
@@ -270,8 +299,39 @@ impl Parser {
             dots += 1;
         }
 
+        let mut tied_duration = TiedDuration::new(Duration::new(duration_val, dots));
+
+        while self.consume_tie() {
+            let tie_position = self.previous().position;
+
+            let tied_duration_val = if let Token::Number(_) = self.peek().token {
+                #[allow(clippy::cast_possible_truncation)]
+                Some(self.consume_number_in_range(1, 64).map_err(|_| {
+                    ParseError::InvalidTieSequence {
+                        position: tie_position,
+                    }
+                })? as u8)
+            } else {
+                None
+            };
+
+            if tied_duration_val.is_none() && !matches!(self.peek().token, Token::Dot) {
+                return Err(ParseError::EmptyTieChain {
+                    position: tie_position,
+                });
+            }
+
+            let mut tied_dots = 0;
+            while matches!(self.peek().token, Token::Dot) {
+                self.advance();
+                tied_dots += 1;
+            }
+
+            tied_duration.add_tie(Duration::new(tied_duration_val, tied_dots));
+        }
+
         Ok(Rest {
-            duration: TiedDuration::new(Duration::new(duration_val, dots)),
+            duration: tied_duration,
         })
     }
 
@@ -362,14 +422,10 @@ impl Parser {
         matches!(self.peek().token, Token::Flat)
     }
 
-    /// 次のトークンがタイ記号かどうかを確認
-    #[allow(dead_code)]
     fn is_next_tie(&self) -> bool {
         matches!(self.peek().token, Token::Tie)
     }
 
-    /// タイ記号を消費（存在する場合）
-    #[allow(dead_code)]
     fn consume_tie(&mut self) -> bool {
         if self.is_next_tie() {
             self.advance();
@@ -1188,5 +1244,195 @@ mod tests {
         // C is not Tie, should return false and parser position should not change
         assert!(!parser.consume_tie());
         assert!(matches!(parser.peek().token, Token::Pitch(_)));
+    }
+
+    // === Issue #125 & #126: Tie notation parsing tests ===
+
+    #[test]
+    fn parse_note_with_single_tie() {
+        // C4&8 -> Note with TiedDuration[base=4, tied=[8]]
+        let input = "C4&8";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Note(n) => {
+                assert_eq!(n.pitch, Pitch::C);
+                assert_eq!(n.duration.base.value, Some(4));
+                assert_eq!(n.duration.base.dots, 0);
+                assert_eq!(n.duration.tied.len(), 1);
+                assert_eq!(n.duration.tied[0].value, Some(8));
+                assert_eq!(n.duration.tied[0].dots, 0);
+            }
+            _ => panic!("Expected Note"),
+        }
+    }
+
+    #[test]
+    fn parse_note_with_multiple_ties() {
+        // C4&8&16 -> Note with TiedDuration[base=4, tied=[8, 16]]
+        let input = "C4&8&16";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Note(n) => {
+                assert_eq!(n.pitch, Pitch::C);
+                assert_eq!(n.duration.base.value, Some(4));
+                assert_eq!(n.duration.tied.len(), 2);
+                assert_eq!(n.duration.tied[0].value, Some(8));
+                assert_eq!(n.duration.tied[1].value, Some(16));
+            }
+            _ => panic!("Expected Note"),
+        }
+    }
+
+    #[test]
+    fn parse_note_tie_with_dots() {
+        // C4.&8. -> Note with TiedDuration[base=(4,1), tied=[(8,1)]]
+        let input = "C4.&8.";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Note(n) => {
+                assert_eq!(n.pitch, Pitch::C);
+                assert_eq!(n.duration.base.value, Some(4));
+                assert_eq!(n.duration.base.dots, 1);
+                assert_eq!(n.duration.tied.len(), 1);
+                assert_eq!(n.duration.tied[0].value, Some(8));
+                assert_eq!(n.duration.tied[0].dots, 1);
+            }
+            _ => panic!("Expected Note"),
+        }
+    }
+
+    #[test]
+    fn parse_note_tie_dot_only() {
+        // C4&. -> Note with TiedDuration[base=4, tied=[(None, 1)]]
+        // Dot-only tie inherits default length
+        let input = "C4&.";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Note(n) => {
+                assert_eq!(n.pitch, Pitch::C);
+                assert_eq!(n.duration.base.value, Some(4));
+                assert_eq!(n.duration.tied.len(), 1);
+                assert_eq!(n.duration.tied[0].value, None);
+                assert_eq!(n.duration.tied[0].dots, 1);
+            }
+            _ => panic!("Expected Note"),
+        }
+    }
+
+    #[test]
+    fn parse_note_empty_tie_error() {
+        // C4& (tie with nothing after) -> EmptyTieChain error
+        let input = "C4&";
+        let err = parse(input).unwrap_err();
+        match err {
+            ParseError::EmptyTieChain { .. } => {}
+            _ => panic!("Expected EmptyTieChain error, got {:?}", err),
+        }
+    }
+
+    #[test]
+    fn parse_note_tie_followed_by_note() {
+        // C4&D -> EmptyTieChain error (D is not a duration)
+        let input = "C4&D";
+        let err = parse(input).unwrap_err();
+        match err {
+            ParseError::EmptyTieChain { .. } => {}
+            _ => panic!("Expected EmptyTieChain error, got {:?}", err),
+        }
+    }
+
+    #[test]
+    fn parse_rest_with_single_tie() {
+        // R4&8 -> Rest with TiedDuration[base=4, tied=[8]]
+        let input = "R4&8";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Rest(r) => {
+                assert_eq!(r.duration.base.value, Some(4));
+                assert_eq!(r.duration.base.dots, 0);
+                assert_eq!(r.duration.tied.len(), 1);
+                assert_eq!(r.duration.tied[0].value, Some(8));
+            }
+            _ => panic!("Expected Rest"),
+        }
+    }
+
+    #[test]
+    fn parse_rest_with_multiple_ties() {
+        // R4&8&16 -> Rest with TiedDuration[base=4, tied=[8, 16]]
+        let input = "R4&8&16";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Rest(r) => {
+                assert_eq!(r.duration.base.value, Some(4));
+                assert_eq!(r.duration.tied.len(), 2);
+                assert_eq!(r.duration.tied[0].value, Some(8));
+                assert_eq!(r.duration.tied[1].value, Some(16));
+            }
+            _ => panic!("Expected Rest"),
+        }
+    }
+
+    #[test]
+    fn parse_rest_empty_tie_error() {
+        // R4& (tie with nothing after) -> EmptyTieChain error
+        let input = "R4&";
+        let err = parse(input).unwrap_err();
+        match err {
+            ParseError::EmptyTieChain { .. } => {}
+            _ => panic!("Expected EmptyTieChain error, got {:?}", err),
+        }
+    }
+
+    #[test]
+    fn parse_note_with_accidental_and_tie() {
+        // C#4&8 -> Note with Sharp and TiedDuration
+        let input = "C#4&8";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Note(n) => {
+                assert_eq!(n.pitch, Pitch::C);
+                assert_eq!(n.accidental, Accidental::Sharp);
+                assert_eq!(n.duration.base.value, Some(4));
+                assert_eq!(n.duration.tied.len(), 1);
+                assert_eq!(n.duration.tied[0].value, Some(8));
+            }
+            _ => panic!("Expected Note"),
+        }
+    }
+
+    #[test]
+    fn parse_multiple_notes_with_ties() {
+        // C4&8 D2&4 -> Two notes each with ties
+        let input = "C4&8 D2&4";
+        let mml = parse(input).unwrap();
+        assert_eq!(mml.commands.len(), 2);
+
+        match &mml.commands[0] {
+            Command::Note(n) => {
+                assert_eq!(n.pitch, Pitch::C);
+                assert_eq!(n.duration.base.value, Some(4));
+                assert_eq!(n.duration.tied.len(), 1);
+                assert_eq!(n.duration.tied[0].value, Some(8));
+            }
+            _ => panic!("Expected Note"),
+        }
+
+        match &mml.commands[1] {
+            Command::Note(n) => {
+                assert_eq!(n.pitch, Pitch::D);
+                assert_eq!(n.duration.base.value, Some(2));
+                assert_eq!(n.duration.tied.len(), 1);
+                assert_eq!(n.duration.tied[0].value, Some(4));
+            }
+            _ => panic!("Expected Note"),
+        }
     }
 }
