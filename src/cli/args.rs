@@ -22,13 +22,19 @@ pub enum Command {
 #[command(group(
     clap::ArgGroup::new("input")
         .required(true)
-        .args(["mml", "history_id"]),
+        .args(["mml", "history_id", "file"]),
 ))]
 pub struct PlayArgs {
+    /// MML string to play
     pub mml: Option<String>,
 
+    /// Replay from history by ID
     #[arg(long)]
     pub history_id: Option<i64>,
+
+    /// Read MML from file (.mml extension required)
+    #[arg(long, short = 'f', value_name = "FILE")]
+    pub file: Option<String>,
 
     #[arg(short, long, default_value = "sine")]
     pub waveform: Waveform,
@@ -144,8 +150,35 @@ mod tests {
         let result = Cli::try_parse_from(&["sine-mml", "play", "--history-id", "1"]);
         assert!(result.is_ok());
 
-        // Both -> Error
+        // File only -> OK
+        let result = Cli::try_parse_from(&["sine-mml", "play", "--file", "test.mml"]);
+        assert!(result.is_ok());
+
+        // File with short flag -> OK
+        let result = Cli::try_parse_from(&["sine-mml", "play", "-f", "test.mml"]);
+        assert!(result.is_ok());
+
+        // MML + history-id -> Error
         let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--history-id", "1"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+
+        // MML + file -> Error
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--file", "test.mml"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+
+        // history-id + file -> Error
+        let result = Cli::try_parse_from(&[
+            "sine-mml",
+            "play",
+            "--history-id",
+            "1",
+            "--file",
+            "test.mml",
+        ]);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
@@ -155,6 +188,27 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
+    }
+
+    #[test]
+    fn test_file_option_parsing() {
+        // File option stores path
+        let result = Cli::try_parse_from(&["sine-mml", "play", "--file", "my_song.mml"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.file, Some("my_song.mml".to_string()));
+        assert_eq!(args.mml, None);
+        assert_eq!(args.history_id, None);
+
+        // Short flag -f
+        let result = Cli::try_parse_from(&["sine-mml", "play", "-f", "another.mml"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.file, Some("another.mml".to_string()));
     }
 
     #[test]

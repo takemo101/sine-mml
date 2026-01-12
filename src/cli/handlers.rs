@@ -5,7 +5,11 @@ use anyhow::{bail, Context, Result};
 use comfy_table::Table;
 
 fn determine_should_save(args: &PlayArgs) -> bool {
-    matches!((&args.mml, args.history_id), (Some(_), None))
+    // Save history when MML is provided directly or from file (not from history)
+    matches!(
+        (&args.mml, &args.file, args.history_id),
+        (Some(_), None, None) | (None, Some(_), None)
+    )
 }
 
 /// playサブコマンドのハンドラー
@@ -22,19 +26,23 @@ fn determine_should_save(args: &PlayArgs) -> bool {
 pub fn play_handler(args: PlayArgs) -> Result<()> {
     // 1. 引数の検証とMML取得
     let should_save = determine_should_save(&args);
-    let mml_string = match (&args.mml, args.history_id) {
-        (Some(mml), None) => mml.clone(),
-        (None, Some(id)) => {
+    let mml_string = match (&args.mml, args.history_id, &args.file) {
+        (Some(mml), None, None) => mml.clone(),
+        (None, Some(id), None) => {
             let db = db::Database::init()?;
             let entry = db
                 .get_by_id(id)
                 .with_context(|| format!("[CLI-E002] 履歴ID {id} が見つかりません"))?;
             entry.mml
         }
-        (None, None) => {
-            bail!("[CLI-E001] play コマンドでは、MML文字列または --history-id のいずれか一方を指定してください");
+        (None, None, Some(file_path)) => {
+            // Read MML from file
+            mml::read_mml_file(file_path)?
         }
-        (Some(_), Some(_)) => {
+        (None, None, None) => {
+            bail!("[CLI-E001] play コマンドでは、MML文字列、--history-id、または --file のいずれか一方を指定してください");
+        }
+        _ => {
             unreachable!("clap should prevent this")
         }
     };
@@ -290,6 +298,7 @@ mod tests {
         let args = PlayArgs {
             mml: None,
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 1.0,
             loop_play: false,
@@ -300,7 +309,7 @@ mod tests {
         };
         let result = play_handler(args);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "[CLI-E001] play コマンドでは、MML文字列または --history-id のいずれか一方を指定してください");
+        assert_eq!(result.unwrap_err().to_string(), "[CLI-E001] play コマンドでは、MML文字列、--history-id、または --file のいずれか一方を指定してください");
     }
 
     #[test]
@@ -308,6 +317,7 @@ mod tests {
         let args = PlayArgs {
             mml: Some("C".to_string()),
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 0.5,
             loop_play: false,
@@ -325,6 +335,7 @@ mod tests {
         let args = PlayArgs {
             mml: Some("C".to_string()),
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 0.5,
             loop_play: false,
@@ -342,6 +353,7 @@ mod tests {
         let args = PlayArgs {
             mml: Some("C".to_string()),
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 0.5,
             loop_play: false,
@@ -448,6 +460,7 @@ mod tests {
         let args = PlayArgs {
             mml: Some("CDE".to_string()),
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 1.0,
             loop_play: false,
@@ -464,6 +477,7 @@ mod tests {
         let args = PlayArgs {
             mml: None,
             history_id: Some(1),
+            file: None,
             waveform: Waveform::Sine,
             volume: 1.0,
             loop_play: false,
@@ -473,6 +487,23 @@ mod tests {
             note: None,
         };
         assert!(!determine_should_save(&args));
+    }
+
+    #[test]
+    fn test_should_save_flag_file_input() {
+        let args = PlayArgs {
+            mml: None,
+            history_id: None,
+            file: Some("test.mml".to_string()),
+            waveform: Waveform::Sine,
+            volume: 1.0,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note: None,
+        };
+        assert!(determine_should_save(&args));
     }
 
     #[test]
