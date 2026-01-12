@@ -110,9 +110,6 @@ impl std::fmt::Display for ParseError {
                     range.0, range.1
                 )
             }
-            Self::NestedLoop { position } => {
-                write!(f, "位置 {position}: ネストしたループは非対応です")
-            }
             Self::LoopEscapeOutsideLoop { position } => {
                 write!(
                     f,
