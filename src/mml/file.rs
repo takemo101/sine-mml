@@ -156,7 +156,7 @@ mod tests {
         let mut file = File::create(&file_path).unwrap();
         writeln!(file, "# イントロ").unwrap();
         writeln!(file, "T120 L8 O5").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "# Aメロ").unwrap();
         writeln!(file, "CDEFGAB").unwrap();
 
