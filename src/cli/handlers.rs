@@ -298,6 +298,7 @@ mod tests {
         let args = PlayArgs {
             mml: None,
             history_id: None,
+            file: None,
             waveform: Waveform::Sine,
             volume: 1.0,
             loop_play: false,
@@ -308,7 +309,7 @@ mod tests {
         };
         let result = play_handler(args);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "[CLI-E001] play コマンドでは、MML文字列または --history-id のいずれか一方を指定してください");
+        assert_eq!(result.unwrap_err().to_string(), "[CLI-E001] play コマンドでは、MML文字列、--history-id、または --file のいずれか一方を指定してください");
     }
 
     #[test]
