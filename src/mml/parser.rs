@@ -3,6 +3,15 @@ use super::{
     TokenWithPos, Volume, VolumeValue,
 };
 
+/// ループコマンドを展開してフラットなコマンド列に変換（再帰対応）
+///
+/// # 引数
+/// - `commands`: ループ内のコマンド列
+/// - `escape_index`: 脱出ポイントのインデックス（Noneの場合は脱出なし）
+/// - `repeat_count`: 繰り返し回数
+///
+/// # 戻り値
+/// 展開されたコマンド列
 #[must_use]
 pub fn expand_loop(
     commands: &[Command],
@@ -21,7 +30,18 @@ pub fn expand_loop(
         };
 
         for cmd in &commands[..end_index] {
-            expanded.push(cmd.clone());
+            // ネストしたループも再帰的に展開 (Issue #93, #94)
+            if let Command::Loop {
+                commands: inner_cmds,
+                escape_index: inner_escape,
+                repeat_count: inner_count,
+            } = cmd
+            {
+                let inner_expanded = expand_loop(inner_cmds, *inner_escape, *inner_count);
+                expanded.extend(inner_expanded);
+            } else {
+                expanded.push(cmd.clone());
+            }
         }
     }
 
