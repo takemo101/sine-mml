@@ -32,13 +32,15 @@ pub enum ParseError {
         range: (u16, u16),
         position: usize,
     },
-    NestedLoop {
-        position: usize,
-    },
     LoopEscapeOutsideLoop {
         position: usize,
     },
     MultipleEscapePoints {
+        position: usize,
+    },
+    /// ループのネストが深すぎる（最大5階層）
+    LoopNestTooDeep {
+        max_depth: usize,
         position: usize,
     },
 }
@@ -108,9 +110,6 @@ impl std::fmt::Display for ParseError {
                     range.0, range.1
                 )
             }
-            Self::NestedLoop { position } => {
-                write!(f, "位置 {position}: ネストしたループは非対応です")
-            }
             Self::LoopEscapeOutsideLoop { position } => {
                 write!(
                     f,
@@ -121,6 +120,15 @@ impl std::fmt::Display for ParseError {
                 write!(
                     f,
                     "位置 {position}: ループ内に複数の脱出ポイント ':' があります"
+                )
+            }
+            Self::LoopNestTooDeep {
+                max_depth,
+                position,
+            } => {
+                write!(
+                    f,
+                    "位置 {position}: ループのネストが深すぎます（最大{max_depth}階層）"
                 )
             }
         }

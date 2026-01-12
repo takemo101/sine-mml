@@ -3,6 +3,15 @@ use super::{
     TokenWithPos, Volume, VolumeValue,
 };
 
+/// ループコマンドを展開してフラットなコマンド列に変換（再帰対応）
+///
+/// # 引数
+/// - `commands`: ループ内のコマンド列
+/// - `escape_index`: 脱出ポイントのインデックス（Noneの場合は脱出なし）
+/// - `repeat_count`: 繰り返し回数
+///
+/// # 戻り値
+/// 展開されたコマンド列
 #[must_use]
 pub fn expand_loop(
     commands: &[Command],
@@ -21,22 +30,41 @@ pub fn expand_loop(
         };
 
         for cmd in &commands[..end_index] {
-            expanded.push(cmd.clone());
+            // ネストしたループも再帰的に展開 (Issue #93, #94)
+            if let Command::Loop {
+                commands: inner_cmds,
+                escape_index: inner_escape,
+                repeat_count: inner_count,
+            } = cmd
+            {
+                let inner_expanded = expand_loop(inner_cmds, *inner_escape, *inner_count);
+                expanded.extend(inner_expanded);
+            } else {
+                expanded.push(cmd.clone());
+            }
         }
     }
 
     expanded
 }
 
+/// 最大ループネスト深度
+const MAX_LOOP_DEPTH: usize = 5;
+
 pub struct Parser {
     tokens: Vec<TokenWithPos>,
     current: usize,
+    loop_depth: usize,
 }
 
 impl Parser {
     #[must_use]
     pub fn new(tokens: Vec<TokenWithPos>) -> Self {
-        Self { tokens, current: 0 }
+        Self {
+            tokens,
+            current: 0,
+            loop_depth: 0,
+        }
     }
 
     /// Parses the tokens into an MML AST.
@@ -106,8 +134,17 @@ impl Parser {
     }
 
     fn parse_loop(&mut self) -> Result<Command, ParseError> {
+        // ネスト深度チェック (Issue #93)
+        if self.loop_depth >= MAX_LOOP_DEPTH {
+            return Err(ParseError::LoopNestTooDeep {
+                max_depth: MAX_LOOP_DEPTH,
+                position: self.peek().position,
+            });
+        }
+
         let start_pos = self.peek().position;
         self.advance();
+        self.loop_depth += 1; // ネスト深度を増やす
 
         let mut commands = Vec::new();
         let mut escape_index = None;
@@ -115,6 +152,7 @@ impl Parser {
 
         while !self.check_loop_end() {
             if self.is_at_end() {
+                self.loop_depth -= 1; // エラー時も深度を戻す
                 return Err(ParseError::UnmatchedLoopStart {
                     position: start_pos,
                 });
@@ -123,6 +161,7 @@ impl Parser {
             if self.check_loop_escape() {
                 escape_count += 1;
                 if escape_count > 1 {
+                    self.loop_depth -= 1; // エラー時も深度を戻す
                     return Err(ParseError::MultipleEscapePoints {
                         position: self.peek().position,
                     });
@@ -132,17 +171,13 @@ impl Parser {
                 continue;
             }
 
-            if self.check_loop_start() {
-                return Err(ParseError::NestedLoop {
-                    position: self.peek().position,
-                });
-            }
-
+            // ネストしたループを許可（parse_command経由で再帰的にparse_loopが呼ばれる）
             let command = self.parse_command()?;
             commands.push(command);
         }
 
         self.advance();
+        self.loop_depth -= 1; // ネスト深度を戻す
 
         let repeat_count = if self.check_number() {
             let token_with_pos = self.advance();
@@ -175,10 +210,6 @@ impl Parser {
 
     fn check_loop_escape(&self) -> bool {
         matches!(self.peek().token, Token::LoopEscape)
-    }
-
-    fn check_loop_start(&self) -> bool {
-        matches!(self.peek().token, Token::LoopStart)
     }
 
     fn check_number(&self) -> bool {
@@ -648,9 +679,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_nested_loop_error() {
-        let err = parse("[[CDEF]2]3").unwrap_err();
-        assert!(matches!(err, ParseError::NestedLoop { .. }));
+    fn parse_nested_loop_allowed() {
+        // ネストしたループは許可されるようになった (Issue #93)
+        let mml = parse("[[CDEF]2]3").unwrap();
+        // 内側: CDEF × 2 = 8, 外側: 8 × 3 = 24
+        assert_eq!(mml.commands.len(), 24);
     }
 
     #[test]
@@ -922,5 +955,76 @@ mod tests {
                 })
             ));
         }
+    }
+
+    // ======== Loop Nest Depth Tests (Issue #93) ========
+
+    #[test]
+    fn parse_loop_nest_2_levels() {
+        // 2階層ネスト - 許可
+        let mml = parse("[[C]2]2").unwrap();
+        // 展開: C C × 2 = C C C C (4コマンド)
+        assert_eq!(mml.commands.len(), 4);
+    }
+
+    #[test]
+    fn parse_loop_nest_3_levels() {
+        // 3階層ネスト - 許可
+        let mml = parse("[[[C]2]2]2").unwrap();
+        // 展開: 2^3 = 8コマンド
+        assert_eq!(mml.commands.len(), 8);
+    }
+
+    #[test]
+    fn parse_loop_nest_4_levels() {
+        // 4階層ネスト - 許可
+        let mml = parse("[[[[C]2]2]2]2").unwrap();
+        // 展開: 2^4 = 16コマンド
+        assert_eq!(mml.commands.len(), 16);
+    }
+
+    #[test]
+    fn parse_loop_nest_5_levels() {
+        // 5階層ネスト - 許可（上限）
+        let mml = parse("[[[[[C]2]2]2]2]2").unwrap();
+        // 展開: 2^5 = 32コマンド
+        assert_eq!(mml.commands.len(), 32);
+    }
+
+    #[test]
+    fn parse_loop_nest_6_levels_error() {
+        // 6階層ネスト - エラー
+        let err = parse("[[[[[[C]2]2]2]2]2]2").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::LoopNestTooDeep { max_depth: 5, .. }
+        ));
+    }
+
+    #[test]
+    fn parse_loop_nest_7_levels_error() {
+        // 7階層ネスト - エラー
+        let err = parse("[[[[[[[C]2]2]2]2]2]2]2").unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::LoopNestTooDeep { max_depth: 5, .. }
+        ));
+    }
+
+    #[test]
+    fn parse_loop_nest_with_commands() {
+        // 2階層ネストに複数コマンド
+        let mml = parse("[CDE[FG]2AB]2").unwrap();
+        // 内側: FG × 2 = FGFG (4)
+        // 外側: CDE(3) + FGFG(4) + AB(2) = 9コマンド × 2 = 18
+        assert_eq!(mml.commands.len(), 18);
+    }
+
+    #[test]
+    fn parse_loop_nest_with_escape_point() {
+        // ネスト内での脱出ポイント
+        let mml = parse("[[CD:EF]2]2").unwrap();
+        // 内側: CDEF CD (6) × 2 = 12
+        assert_eq!(mml.commands.len(), 12);
     }
 }
