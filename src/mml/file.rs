@@ -112,7 +112,7 @@ mod tests {
         let mut file = File::create(&file_path).unwrap();
         writeln!(file, "# Comment").unwrap();
         writeln!(file, "CDEFGAB").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "# Another comment").unwrap();
         writeln!(file, ">C").unwrap();
 
