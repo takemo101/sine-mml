@@ -146,6 +146,25 @@ impl TiedDuration {
         !self.tied.is_empty()
     }
 
+    /// 総音長を拍数（f64）で計算
+    ///
+    /// # Arguments
+    /// * `default_duration` - デフォルト音価（省略時）
+    ///
+    /// # Returns
+    /// 総音長（拍数）。4分音符 = 1拍として計算。
+    ///
+    /// # Examples
+    /// - `C4&8` (default=4): 1.0拍 + 0.5拍 = 1.5拍
+    /// - `C4&8&16` (default=4): 1.0拍 + 0.5拍 + 0.25拍 = 1.75拍
+    /// - `C4.&8` (default=4): 1.5拍 + 0.5拍 = 2.0拍
+    #[must_use]
+    pub fn total_beats(&self, default_duration: u8) -> f64 {
+        let base_beats = self.base.to_beats(default_duration);
+        let tied_beats: f64 = self.tied.iter().map(|d| d.to_beats(default_duration)).sum();
+        base_beats + tied_beats
+    }
+
     /// 合計音長を秒単位で計算
     #[must_use]
     pub fn total_duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
