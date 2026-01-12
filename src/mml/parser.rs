@@ -997,10 +997,7 @@ mod tests {
         let err = parse("[[[[[[C]2]2]2]2]2]2").unwrap_err();
         assert!(matches!(
             err,
-            ParseError::LoopNestTooDeep {
-                max_depth: 5,
-                ..
-            }
+            ParseError::LoopNestTooDeep { max_depth: 5, .. }
         ));
     }
 
@@ -1010,10 +1007,7 @@ mod tests {
         let err = parse("[[[[[[[C]2]2]2]2]2]2]2").unwrap_err();
         assert!(matches!(
             err,
-            ParseError::LoopNestTooDeep {
-                max_depth: 5,
-                ..
-            }
+            ParseError::LoopNestTooDeep { max_depth: 5, .. }
         ));
     }
 
