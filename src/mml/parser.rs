@@ -1026,8 +1026,8 @@ mod tests {
         // 2階層ネストに複数コマンド
         let mml = parse("[CDE[FG]2AB]2").unwrap();
         // 内側: FG × 2 = FGFG (4)
-        // 外側: CDE FGFG AB × 2 = 7 × 2 = 14
-        assert_eq!(mml.commands.len(), 14);
+        // 外側: CDE(3) + FGFG(4) + AB(2) = 9コマンド × 2 = 18
+        assert_eq!(mml.commands.len(), 18);
     }
 
     #[test]
