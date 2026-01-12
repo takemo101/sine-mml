@@ -54,7 +54,20 @@ impl Synthesizer {
                 Command::OctaveDown => octave = octave.saturating_sub(1).max(1),
                 Command::Tempo(t) => bpm = t.value,
                 Command::DefaultLength(l) => default_length = l.value,
-                Command::Volume(v) => current_velocity = v.value,
+                Command::Volume(v) => {
+                    current_velocity = match v.value {
+                        VolumeValue::Absolute(val) => val,
+                        VolumeValue::Relative(delta) => {
+                            // 現在値に加算/減算し、0-15にクランプ
+                            #[allow(clippy::cast_possible_wrap)]
+                            let new_val = (current_velocity as i8 + delta).clamp(0, 15);
+                            #[allow(clippy::cast_sign_loss)]
+                            {
+                                new_val as u8
+                            }
+                        }
+                    };
+                }
                 Command::Loop { .. } => {
                     unreachable!("Loop commands should be expanded before synthesis")
                 }
