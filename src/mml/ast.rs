@@ -45,6 +45,93 @@ pub enum Command {
     },
 }
 
+/// 単一の音価を表現
+///
+/// # フィールド
+/// - `value`: 音価（1=全音符, 2=2分音符, 4=4分音符, etc.）、Noneの場合はデフォルト音長を使用
+/// - `dots`: 付点の数（0-3）
+#[derive(Debug, Clone, PartialEq)]
+pub struct Duration {
+    /// 音価（None の場合はデフォルト音長を使用）
+    pub value: Option<u8>,
+    /// 付点の数
+    pub dots: u8,
+}
+
+impl Duration {
+    /// 新しいDurationを作成
+    #[must_use]
+    pub const fn new(value: Option<u8>, dots: u8) -> Self {
+        Self { value, dots }
+    }
+
+    /// 秒単位での音長を計算
+    #[must_use]
+    pub fn duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
+        let length = f32::from(self.value.unwrap_or(default_length));
+        if length == 0.0 {
+            return 0.0;
+        }
+        let base_duration = 240.0 / (f32::from(bpm) * length);
+        let dot_multiplier = calculate_dot_multiplier(self.dots);
+        base_duration * dot_multiplier
+    }
+}
+
+/// タイで連結された音価を表現
+///
+/// # フィールド
+/// - `base`: ベース音価（最初の音符の音価）
+/// - `tied`: 連結される追加音価のリスト
+///
+/// # 例
+/// ```ignore
+/// // C4&8 の場合
+/// TiedDuration {
+///     base: Duration { value: Some(4), dots: 0 },
+///     tied: vec![Duration { value: Some(8), dots: 0 }],
+/// }
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct TiedDuration {
+    /// ベース音価（最初の音符の音価）
+    pub base: Duration,
+    /// 連結される追加音価のリスト
+    pub tied: Vec<Duration>,
+}
+
+impl TiedDuration {
+    /// 新しいTiedDurationを作成
+    #[must_use]
+    pub fn new(base: Duration) -> Self {
+        Self {
+            base,
+            tied: Vec::new(),
+        }
+    }
+
+    /// タイで連結する音価を追加
+    pub fn add_tie(&mut self, duration: Duration) {
+        self.tied.push(duration);
+    }
+
+    /// タイが存在するかどうか
+    #[must_use]
+    pub fn has_ties(&self) -> bool {
+        !self.tied.is_empty()
+    }
+
+    /// 合計音長を秒単位で計算
+    #[must_use]
+    pub fn total_duration_in_seconds(&self, bpm: u16, default_length: u8) -> f32 {
+        let mut total = self.base.duration_in_seconds(bpm, default_length);
+        for tied in &self.tied {
+            total += tied.duration_in_seconds(bpm, default_length);
+        }
+        total
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Note {
     pub pitch: Pitch,
@@ -274,5 +361,65 @@ mod tests {
             })],
         };
         assert_eq!(mml.get_tempo(), 120);
+    }
+
+    // TiedDuration tests
+    #[test]
+    fn tied_duration_new() {
+        let duration = TiedDuration::new(Duration::new(Some(4), 0));
+        assert_eq!(duration.base.value, Some(4));
+        assert_eq!(duration.base.dots, 0);
+        assert!(duration.tied.is_empty());
+    }
+
+    #[test]
+    fn tied_duration_add_tie() {
+        let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
+        duration.add_tie(Duration::new(Some(8), 0));
+        assert_eq!(duration.tied.len(), 1);
+        assert_eq!(duration.tied[0].value, Some(8));
+    }
+
+    #[test]
+    fn tied_duration_has_ties() {
+        let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
+        assert!(!duration.has_ties());
+        duration.add_tie(Duration::new(Some(8), 0));
+        assert!(duration.has_ties());
+    }
+
+    #[test]
+    fn tied_duration_total_duration_simple() {
+        // C4&8 at 120 BPM: 4分音符(0.5s) + 8分音符(0.25s) = 0.75s
+        let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
+        duration.add_tie(Duration::new(Some(8), 0));
+        let total = duration.total_duration_in_seconds(120, 4);
+        assert!((total - 0.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn tied_duration_total_duration_multiple_ties() {
+        // C4&8&16 at 120 BPM: 4分音符(0.5s) + 8分音符(0.25s) + 16分音符(0.125s) = 0.875s
+        let mut duration = TiedDuration::new(Duration::new(Some(4), 0));
+        duration.add_tie(Duration::new(Some(8), 0));
+        duration.add_tie(Duration::new(Some(16), 0));
+        let total = duration.total_duration_in_seconds(120, 4);
+        assert!((total - 0.875).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_in_seconds_with_default() {
+        // デフォルト音長が4の場合、Noneは4分音符として扱われる
+        let duration = Duration::new(None, 0);
+        let seconds = duration.duration_in_seconds(120, 4);
+        assert!((seconds - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn duration_in_seconds_with_dots() {
+        // 4分付点音符 at 120 BPM: 0.5s * 1.5 = 0.75s
+        let duration = Duration::new(Some(4), 1);
+        let seconds = duration.duration_in_seconds(120, 4);
+        assert!((seconds - 0.75).abs() < 0.001);
     }
 }
