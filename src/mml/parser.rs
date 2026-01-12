@@ -361,6 +361,23 @@ impl Parser {
         matches!(self.peek().token, Token::Flat)
     }
 
+    /// 次のトークンがタイ記号かどうかを確認
+    #[allow(dead_code)]
+    fn is_next_tie(&self) -> bool {
+        matches!(self.peek().token, Token::Tie)
+    }
+
+    /// タイ記号を消費（存在する場合）
+    #[allow(dead_code)]
+    fn consume_tie(&mut self) -> bool {
+        if self.is_next_tie() {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
     /// 数値を消費（範囲チェックなし）
     fn consume_number(&mut self) -> Result<u16, ParseError> {
         let token_with_pos = self.peek();
@@ -1140,5 +1157,41 @@ mod tests {
         let mml = parse(input).unwrap();
 
         assert_eq!(mml.commands.len(), 16);
+    }
+
+    #[test]
+    fn test_is_next_tie_true() {
+        let tokens = super::super::tokenize("C4&8").unwrap();
+        let parser = Parser::new(tokens);
+        // Skip C, 4 to get to &
+        let mut parser = parser;
+        parser.advance(); // C
+        parser.advance(); // 4
+        assert!(parser.is_next_tie());
+    }
+
+    #[test]
+    fn test_is_next_tie_false() {
+        let tokens = super::super::tokenize("C4").unwrap();
+        let parser = Parser::new(tokens);
+        assert!(!parser.is_next_tie()); // C is not Tie
+    }
+
+    #[test]
+    fn test_consume_tie_success() {
+        let tokens = super::super::tokenize("&C").unwrap();
+        let mut parser = Parser::new(tokens);
+        assert!(parser.consume_tie());
+        // After consuming, next token should be C (Pitch)
+        assert!(matches!(parser.peek().token, Token::Pitch(_)));
+    }
+
+    #[test]
+    fn test_consume_tie_failure() {
+        let tokens = super::super::tokenize("C4").unwrap();
+        let mut parser = Parser::new(tokens);
+        // C is not Tie, should return false and parser position should not change
+        assert!(!parser.consume_tie());
+        assert!(matches!(parser.peek().token, Token::Pitch(_)));
     }
 }
