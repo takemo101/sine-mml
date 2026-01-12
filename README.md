@@ -70,6 +70,9 @@ sine-mml play --file song.mml
 # 相対ボリュームで音量を変化（v2.1新機能）
 sine-mml play "V10 C V+2 D V-3 E"  # V10 → V12 → V9
 
+# タイ記号で音符を連結（v2.2新機能）
+sine-mml play "C4&8 D4 E4&8&16"  # C: 1.5拍、D: 1拍、E: 1.75拍
+
 # 履歴にメモを付けて再生（v2.1新機能）
 sine-mml play "CDEFGAB" --note "練習用スケール"
 
