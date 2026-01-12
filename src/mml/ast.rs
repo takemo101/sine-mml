@@ -59,7 +59,7 @@ pub struct Duration {
 }
 
 impl Duration {
-    /// 新しいDurationを作成
+    /// Creates a new `Duration`
     #[must_use]
     pub const fn new(value: Option<u8>, dots: u8) -> Self {
         Self { value, dots }
@@ -101,7 +101,7 @@ pub struct TiedDuration {
 }
 
 impl TiedDuration {
-    /// 新しいTiedDurationを作成
+    /// Creates a new `TiedDuration`
     #[must_use]
     pub fn new(base: Duration) -> Self {
         Self {
