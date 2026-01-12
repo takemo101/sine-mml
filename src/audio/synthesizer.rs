@@ -1,5 +1,5 @@
 use crate::audio::waveform::{create_node, midi_to_frequency, WaveformType};
-use crate::mml::{Command, Mml, Note};
+use crate::mml::{Command, Mml, Note, VolumeValue};
 use fundsp::hacker::{highpass_hz, noise};
 use std::error::Error;
 
