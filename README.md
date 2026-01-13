@@ -28,7 +28,103 @@
 
 ## 🛠 インストール
 
-### 必要条件
+### バイナリをダウンロード（推奨）
+
+[Releases](https://github.com/takemo101/sine-mml/releases) ページから、お使いの環境に合ったバイナリをダウンロードできます。
+
+#### macOS (Apple Silicon / M1, M2, M3...)
+
+```bash
+# ダウンロード
+curl -LO https://github.com/takemo101/sine-mml/releases/latest/download/sine-mml-macos-aarch64
+
+# 実行権限を付与
+chmod +x sine-mml-macos-aarch64
+
+# PATHの通った場所に移動（オプション）
+sudo mv sine-mml-macos-aarch64 /usr/local/bin/sine-mml
+
+# 動作確認
+sine-mml --version
+```
+
+> **注意**: 初回実行時に「開発元を検証できない」警告が表示される場合は、システム設定 > プライバシーとセキュリティ から許可してください。
+
+#### macOS (Intel)
+
+```bash
+# ダウンロード
+curl -LO https://github.com/takemo101/sine-mml/releases/latest/download/sine-mml-macos-x86_64
+
+# 実行権限を付与
+chmod +x sine-mml-macos-x86_64
+
+# PATHの通った場所に移動（オプション）
+sudo mv sine-mml-macos-x86_64 /usr/local/bin/sine-mml
+
+# 動作確認
+sine-mml --version
+```
+
+#### Linux (x86_64)
+
+```bash
+# ダウンロード
+curl -LO https://github.com/takemo101/sine-mml/releases/latest/download/sine-mml-linux-x86_64
+
+# 実行権限を付与
+chmod +x sine-mml-linux-x86_64
+
+# PATHの通った場所に移動（オプション）
+sudo mv sine-mml-linux-x86_64 /usr/local/bin/sine-mml
+
+# 動作確認
+sine-mml --version
+```
+
+> **注意**: Linuxでオーディオ再生を行うには、ALSAライブラリが必要です:
+> ```bash
+> # Debian/Ubuntu
+> sudo apt-get install libasound2
+> 
+> # Fedora/RHEL
+> sudo dnf install alsa-lib
+> ```
+
+#### Windows (x86_64)
+
+1. [Releases](https://github.com/takemo101/sine-mml/releases/latest) ページから `sine-mml-windows-x86_64.exe` をダウンロード
+2. ダウンロードしたファイルを任意のフォルダに配置（例: `C:\Program Files\sine-mml\`）
+3. （オプション）環境変数 `PATH` にフォルダを追加
+4. コマンドプロンプトまたはPowerShellで実行:
+
+```powershell
+# 直接実行
+.\sine-mml-windows-x86_64.exe --version
+
+# PATHに追加済みの場合
+sine-mml --version
+```
+
+#### チェックサムの検証（オプション）
+
+各バイナリには `.sha256` ファイルが添付されています。ダウンロードの整合性を確認できます:
+
+```bash
+# macOS/Linux
+shasum -a 256 -c sine-mml-macos-aarch64.sha256
+
+# Windows (PowerShell)
+(Get-FileHash sine-mml-windows-x86_64.exe -Algorithm SHA256).Hash -eq (Get-Content sine-mml-windows-x86_64.exe.sha256).Split()[0]
+```
+
+---
+
+### ソースからビルド
+
+Rustツールチェーンがインストールされている場合は、ソースからビルドすることもできます。
+
+#### 必要条件
 
 - **Rustツールチェーン**: [Rust](https://www.rust-lang.org/tools/install) がインストールされていること（edition 2021）
 - **オーディオ依存関係（Linuxのみ）**:
@@ -36,7 +132,7 @@
   sudo apt-get install libasound2-dev
   ```
 
-### ソースからビルド
+#### ビルド手順
 
 ```bash
 git clone https://github.com/takemo101/sine-mml.git
