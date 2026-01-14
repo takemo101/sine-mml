@@ -4,6 +4,9 @@ use crate::{audio, db, mml};
 use anyhow::{bail, Context, Result};
 use comfy_table::Table;
 
+#[cfg(feature = "midi-output")]
+use crate::midi;
+
 fn determine_should_save(args: &PlayArgs) -> bool {
     // Save history when MML is provided directly or from file (not from history)
     matches!(
@@ -22,56 +25,66 @@ fn determine_should_save(args: &PlayArgs) -> bool {
 /// - Audio synthesis fails
 /// - Audio playback fails
 /// - History saving fails
-#[allow(clippy::needless_pass_by_value)]
-pub fn play_handler(args: PlayArgs) -> Result<()> {
-    // 1. 引数の検証とMML取得
-    let should_save = determine_should_save(&args);
-    let mml_string = match (&args.mml, args.history_id, &args.file) {
-        (Some(mml), None, None) => mml.clone(),
-        (None, Some(id), None) => {
-            let db = db::Database::init()?;
-            let entry = db
-                .get_by_id(id)
-                .with_context(|| format!("[CLI-E002] 履歴ID {id} が見つかりません"))?;
-            entry.mml
+#[cfg(feature = "midi-output")]
+fn handle_midi_list() -> Result<()> {
+    let devices = midi::list_midi_devices()?;
+    if devices.is_empty() {
+        println!("MIDIデバイスが見つかりません");
+    } else {
+        println!("利用可能なMIDIデバイス:");
+        for (i, name) in devices.iter().enumerate() {
+            println!("  {i}: {name}");
         }
-        (None, None, Some(file_path)) => {
-            // Read MML from file
-            mml::read_mml_file(file_path)?
-        }
-        (None, None, None) => {
-            bail!("[CLI-E001] play コマンドでは、MML文字列、--history-id、または --file のいずれか一方を指定してください");
-        }
-        _ => {
-            unreachable!("clap should prevent this")
-        }
-    };
+    }
+    Ok(())
+}
 
-    // メモのバリデーション
-    if let Some(ref note) = args.note {
-        validate_note(note).map_err(|e| anyhow::anyhow!("[CLI-E010] {e}"))?;
+#[cfg(feature = "midi-output")]
+fn handle_midi_output(device: &str, channel: u8, mml_string: &str, ast: &mml::Mml) -> Result<()> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let mut conn = midi::connect_midi_device(device).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let interrupt = Arc::new(AtomicBool::new(false));
+    let interrupt_clone = Arc::clone(&interrupt);
+
+    ctrlc::set_handler(move || {
+        interrupt_clone.store(true, Ordering::SeqCst);
+    })
+    .context("Ctrl+Cハンドラーの設定に失敗しました")?;
+
+    println!("MIDI再生中... (Ctrl+Cで停止)");
+    println!("  MML: {}", truncate_mml(mml_string, 50));
+    println!("  デバイス: {device}");
+    println!("  チャンネル: {channel}");
+
+    midi::play_midi_stream_interruptible(&mut conn, &ast.commands, channel, &interrupt)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    if interrupt.load(Ordering::Relaxed) {
+        output::success("✓ MIDI再生を中断しました");
+    } else {
+        output::success("✓ MIDI再生完了");
     }
 
-    // 2. MML解析
-    let ast = mml::parse(&mml_string).map_err(|e| anyhow::anyhow!("MML parse error: {e:?}"))?;
+    Ok(())
+}
 
-    // 3. 音声合成
+fn handle_audio_playback(args: &PlayArgs, mml_string: &str, ast: &mml::Mml) -> Result<()> {
     let waveform_type = match args.waveform {
         Waveform::Sine => audio::waveform::WaveformType::Sine,
         Waveform::Sawtooth => audio::waveform::WaveformType::Sawtooth,
         Waveform::Square => audio::waveform::WaveformType::Square,
     };
 
-    // volume: f32 (0.0-1.0) -> u8 (0-100)
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let volume_u8 = (args.volume * 100.0) as u8;
-
-    // sample_rate: 44100 (fixed for now)
     let sample_rate = 44100;
 
     let mut synth = audio::synthesizer::Synthesizer::new(sample_rate, volume_u8, waveform_type);
     let mut buffer = synth
-        .synthesize(&ast)
+        .synthesize(ast)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("音声合成に失敗しました")?;
 
@@ -87,57 +100,60 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
         audio::synthesizer::normalize_samples(&mut buffer);
     }
 
-    // 4. 履歴保存（ループ前に実行）
-    let history_id_opt = if should_save {
-        let db = db::Database::init()?;
+    let history_id_opt = save_history_if_needed(args, mml_string)?;
+    play_audio_buffer(&buffer, mml_string, args.loop_play)?;
+    print_completion_message(history_id_opt, args.note.as_ref());
 
-        let db_waveform = match args.waveform {
-            Waveform::Sine => db::history::Waveform::Sine,
-            Waveform::Sawtooth => db::history::Waveform::Sawtooth,
-            Waveform::Square => db::history::Waveform::Square,
-        };
+    Ok(())
+}
 
-        // BPMはTコマンドで指定されるが、履歴にはデフォルト120として記録（MML内にTコマンドがあればそれが優先されるが、DBスキーマ上必要）
-        let bpm_u16 = 120;
+fn save_history_if_needed(args: &PlayArgs, mml_string: &str) -> Result<Option<i64>> {
+    if !determine_should_save(args) {
+        return Ok(None);
+    }
 
-        let entry = db::HistoryEntry::new(
-            mml_string.clone(),
-            db_waveform,
-            args.volume,
-            bpm_u16,
-            args.note.clone(),
-        );
-
-        match db.save(&entry) {
-            Ok(id) => Some(id),
-            Err(e) => {
-                eprintln!("Warning: 履歴の保存に失敗しました: {e}");
-                None
-            }
-        }
-    } else {
-        None
+    let db = db::Database::init()?;
+    let db_waveform = match args.waveform {
+        Waveform::Sine => db::history::Waveform::Sine,
+        Waveform::Sawtooth => db::history::Waveform::Sawtooth,
+        Waveform::Square => db::history::Waveform::Square,
     };
+    let bpm_u16 = 120;
+    let entry = db::HistoryEntry::new(
+        mml_string.to_string(),
+        db_waveform,
+        args.volume,
+        bpm_u16,
+        args.note.clone(),
+    );
 
-    // 5. 再生
-    // コンテナ環境などオーディオデバイスがない場合は警告を出して続行
+    match db.save(&entry) {
+        Ok(id) => Ok(Some(id)),
+        Err(e) => {
+            eprintln!("Warning: 履歴の保存に失敗しました: {e}");
+            Ok(None)
+        }
+    }
+}
+
+fn play_audio_buffer(buffer: &[f32], mml_string: &str, loop_play: bool) -> Result<()> {
     match audio::player::AudioPlayer::new() {
         Ok(mut player) => {
             player
-                .play(&buffer, args.loop_play)
+                .play(buffer, loop_play)
                 .context("音声再生に失敗しました")?;
-
-            // 6. プログレス表示 & 待機
-            output::display_play_progress(&mml_string, &buffer, args.loop_play)?;
+            output::display_play_progress(mml_string, buffer, loop_play)?;
         }
         Err(_) => {
             eprintln!("Warning: Audio device not found. Skipping playback.");
         }
     }
+    Ok(())
+}
 
-    // 7. 成功メッセージ
+fn print_completion_message(history_id_opt: Option<i64>, note: Option<&String>) {
     if let Some(id) = history_id_opt {
-        if let Some(ref note) = args.note {
+        if let Some(note) = note {
             output::success(&format!("✓ 再生完了（履歴ID: {id}、メモ: {note}）"));
         } else {
             output::success(&format!("✓ 再生完了（履歴ID: {id}）"));
@@ -145,8 +161,49 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
     } else {
         output::success("✓ 再生完了");
     }
+}
 
-    Ok(())
+#[allow(clippy::needless_pass_by_value)]
+pub fn play_handler(args: PlayArgs) -> Result<()> {
+    #[cfg(feature = "midi-output")]
+    if args.midi_list {
+        return handle_midi_list();
+    }
+
+    let mml_string = resolve_mml_input(&args)?;
+
+    if let Some(ref note) = args.note {
+        validate_note(note).map_err(|e| anyhow::anyhow!("[CLI-E010] {e}"))?;
+    }
+
+    let ast = mml::parse(&mml_string).map_err(|e| anyhow::anyhow!("MML parse error: {e:?}"))?;
+
+    #[cfg(feature = "midi-output")]
+    if let Some(ref device) = args.midi_out {
+        return handle_midi_output(device, args.midi_channel, &mml_string, &ast);
+    }
+
+    handle_audio_playback(&args, &mml_string, &ast)
+}
+
+fn resolve_mml_input(args: &PlayArgs) -> Result<String> {
+    match (&args.mml, args.history_id, &args.file) {
+        (Some(mml), None, None) => Ok(mml.clone()),
+        (None, Some(id), None) => {
+            let db = db::Database::init()?;
+            let entry = db
+                .get_by_id(id)
+                .with_context(|| format!("[CLI-E002] 履歴ID {id} が見つかりません"))?;
+            Ok(entry.mml)
+        }
+        (None, None, Some(file_path)) => mml::read_mml_file(file_path),
+        (None, None, None) => {
+            bail!("[CLI-E001] play コマンドでは、MML文字列、--history-id、または --file のいずれか一方を指定してください");
+        }
+        _ => {
+            unreachable!("clap should prevent this")
+        }
+    }
 }
 
 /// historyサブコマンドのハンドラー
@@ -295,18 +352,7 @@ mod tests {
 
     #[test]
     fn test_play_handler_no_input() {
-        let args = PlayArgs {
-            mml: None,
-            history_id: None,
-            file: None,
-            waveform: Waveform::Sine,
-            volume: 1.0,
-            loop_play: false,
-            metronome: false,
-            metronome_beat: 4,
-            metronome_volume: 0.3,
-            note: None,
-        };
+        let args = PlayArgs::for_test(None, None, None, Waveform::Sine, 1.0, None);
         let result = play_handler(args);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "[CLI-E001] play コマンドでは、MML文字列、--history-id、または --file のいずれか一方を指定してください");
@@ -314,54 +360,33 @@ mod tests {
 
     #[test]
     fn test_play_handler_with_mml_device_fail_is_ok() {
-        let args = PlayArgs {
-            mml: Some("C".to_string()),
-            history_id: None,
-            file: None,
-            waveform: Waveform::Sine,
-            volume: 0.5,
-            loop_play: false,
-            metronome: false,
-            metronome_beat: 4,
-            metronome_volume: 0.3,
-            note: None,
-        };
-
+        let args = PlayArgs::for_test(Some("C".to_string()), None, None, Waveform::Sine, 0.5, None);
         let _ = play_handler(args);
     }
 
     #[test]
     fn test_play_handler_with_note() {
-        let args = PlayArgs {
-            mml: Some("C".to_string()),
-            history_id: None,
-            file: None,
-            waveform: Waveform::Sine,
-            volume: 0.5,
-            loop_play: false,
-            metronome: false,
-            metronome_beat: 4,
-            metronome_volume: 0.3,
-            note: Some("Test note".to_string()),
-        };
-
+        let args = PlayArgs::for_test(
+            Some("C".to_string()),
+            None,
+            None,
+            Waveform::Sine,
+            0.5,
+            Some("Test note".to_string()),
+        );
         let _ = play_handler(args);
     }
 
     #[test]
     fn test_play_handler_with_note_too_long() {
-        let args = PlayArgs {
-            mml: Some("C".to_string()),
-            history_id: None,
-            file: None,
-            waveform: Waveform::Sine,
-            volume: 0.5,
-            loop_play: false,
-            metronome: false,
-            metronome_beat: 4,
-            metronome_volume: 0.3,
-            note: Some("a".repeat(501)),
-        };
+        let args = PlayArgs::for_test(
+            Some("C".to_string()),
+            None,
+            None,
+            Waveform::Sine,
+            0.5,
+            Some("a".repeat(501)),
+        );
 
         let result = play_handler(args);
         assert!(result.is_err());
@@ -457,52 +482,33 @@ mod tests {
 
     #[test]
     fn test_should_save_flag_mml_input() {
-        let args = PlayArgs {
-            mml: Some("CDE".to_string()),
-            history_id: None,
-            file: None,
-            waveform: Waveform::Sine,
-            volume: 1.0,
-            loop_play: false,
-            metronome: false,
-            metronome_beat: 4,
-            metronome_volume: 0.3,
-            note: None,
-        };
+        let args = PlayArgs::for_test(
+            Some("CDE".to_string()),
+            None,
+            None,
+            Waveform::Sine,
+            1.0,
+            None,
+        );
         assert!(determine_should_save(&args));
     }
 
     #[test]
     fn test_should_save_flag_history_id() {
-        let args = PlayArgs {
-            mml: None,
-            history_id: Some(1),
-            file: None,
-            waveform: Waveform::Sine,
-            volume: 1.0,
-            loop_play: false,
-            metronome: false,
-            metronome_beat: 4,
-            metronome_volume: 0.3,
-            note: None,
-        };
+        let args = PlayArgs::for_test(None, Some(1), None, Waveform::Sine, 1.0, None);
         assert!(!determine_should_save(&args));
     }
 
     #[test]
     fn test_should_save_flag_file_input() {
-        let args = PlayArgs {
-            mml: None,
-            history_id: None,
-            file: Some("test.mml".to_string()),
-            waveform: Waveform::Sine,
-            volume: 1.0,
-            loop_play: false,
-            metronome: false,
-            metronome_beat: 4,
-            metronome_volume: 0.3,
-            note: None,
-        };
+        let args = PlayArgs::for_test(
+            None,
+            None,
+            Some("test.mml".to_string()),
+            Waveform::Sine,
+            1.0,
+            None,
+        );
         assert!(determine_should_save(&args));
     }
 
