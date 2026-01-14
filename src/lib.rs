@@ -12,4 +12,6 @@
 pub mod audio;
 pub mod cli;
 pub mod db;
+#[cfg(feature = "midi-output")]
+pub mod midi;
 pub mod mml;
