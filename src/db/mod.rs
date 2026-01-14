@@ -344,8 +344,8 @@ mod tests {
         let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
 
         db.save(&entry1).unwrap();
-        // Ensure timestamp difference (macOS requires longer sleep for reliable ordering)
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        // SQLite CURRENT_TIMESTAMP is second-precision; need 1s+ for reliable ordering
+        std::thread::sleep(std::time::Duration::from_secs(1));
         db.save(&entry2).unwrap();
 
         let list = db.list(None).unwrap();
@@ -367,7 +367,7 @@ mod tests {
         let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
 
         db.save(&entry1).unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_secs(1));
         db.save(&entry2).unwrap();
 
         let list = db.list(None).unwrap();

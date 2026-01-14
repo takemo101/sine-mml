@@ -71,10 +71,21 @@ impl Synthesizer {
                 Command::Loop { .. } => {
                     unreachable!("Loop commands should be expanded before synthesis")
                 }
-                Command::Tuplet { .. } => {
-                    // TODO: 連符処理は後続Issueで実装
-                    // 現時点では連符はパース前に展開される想定
-                    unreachable!("Tuplet commands should be expanded before synthesis")
+                Command::Tuplet {
+                    commands: tuplet_commands,
+                    count,
+                    base_duration,
+                } => {
+                    let tuplet_samples = self.synthesize_tuplet(
+                        tuplet_commands,
+                        *count,
+                        *base_duration,
+                        &mut octave,
+                        bpm,
+                        default_length,
+                        current_velocity,
+                    );
+                    samples.extend(tuplet_samples);
                 }
             }
         }
@@ -222,6 +233,139 @@ impl Synthesizer {
             }
         }
     }
+
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::too_many_arguments
+    )]
+    fn synthesize_tuplet(
+        &self,
+        commands: &[Command],
+        count: u8,
+        base_duration: Option<u8>,
+        octave: &mut u8,
+        bpm: u16,
+        default_length: u8,
+        velocity: u8,
+    ) -> Vec<f32> {
+        let mut samples = Vec::new();
+
+        let base = base_duration.unwrap_or(default_length);
+        let base_seconds = 60.0 / f32::from(bpm) * 4.0 / f32::from(base);
+        let tuplet_duration = base_seconds / f32::from(count);
+
+        for cmd in commands {
+            match cmd {
+                Command::Note(note) => {
+                    let note_duration =
+                        if note.duration.base.value.is_some() || note.duration.has_ties() {
+                            note.duration_in_seconds(bpm, default_length) / f32::from(count)
+                        } else {
+                            tuplet_duration
+                        };
+
+                    let midi_note = note.to_midi_note(*octave);
+                    let frequency = midi_to_frequency(midi_note);
+                    let num_samples =
+                        (f64::from(note_duration) * f64::from(self.sample_rate)) as usize;
+
+                    let mut audio_node = create_node(self.waveform_type, frequency);
+                    audio_node.set_sample_rate(f64::from(self.sample_rate));
+
+                    let master_gain =
+                        (f32::from(self.volume) / 100.0) * (f32::from(velocity) / 15.0);
+
+                    let mut note_samples = Vec::with_capacity(num_samples);
+                    for _ in 0..num_samples {
+                        let sample = audio_node.get_mono() as f32;
+                        note_samples.push(sample * master_gain);
+                    }
+
+                    self.apply_envelope(&mut note_samples);
+                    samples.extend(note_samples);
+                }
+                Command::Rest(rest) => {
+                    let rest_duration =
+                        if rest.duration.base.value.is_some() || rest.duration.has_ties() {
+                            rest.duration_in_seconds(bpm, default_length) / f32::from(count)
+                        } else {
+                            tuplet_duration
+                        };
+
+                    let num_samples =
+                        (f64::from(rest_duration) * f64::from(self.sample_rate)) as usize;
+                    samples.extend(vec![0.0; num_samples]);
+                }
+                Command::Octave(o) => *octave = o.value,
+                Command::OctaveUp => *octave = octave.saturating_add(1).min(8),
+                Command::OctaveDown => *octave = octave.saturating_sub(1).max(1),
+                Command::Tuplet {
+                    commands: inner_commands,
+                    count: inner_count,
+                    base_duration: inner_base,
+                } => {
+                    let nested_base = if inner_base.is_some() {
+                        *inner_base
+                    } else {
+                        Some(default_length)
+                    };
+
+                    let nested_samples = self.synthesize_tuplet(
+                        inner_commands,
+                        *inner_count,
+                        nested_base,
+                        octave,
+                        bpm,
+                        default_length,
+                        velocity,
+                    );
+
+                    let nested_total_duration =
+                        nested_samples.len() as f32 / self.sample_rate as f32;
+                    if nested_total_duration > 0.0 {
+                        let target_samples =
+                            (f64::from(tuplet_duration) * f64::from(self.sample_rate)) as usize;
+                        let resampled = resample_linear(&nested_samples, target_samples);
+                        samples.extend(resampled);
+                    }
+                }
+                Command::Loop { .. } => {
+                    unreachable!("Loop commands should be expanded before synthesis")
+                }
+                _ => {}
+            }
+        }
+
+        samples
+    }
+}
+
+fn resample_linear(samples: &[f32], target_len: usize) -> Vec<f32> {
+    if samples.is_empty() || target_len == 0 {
+        return vec![0.0; target_len];
+    }
+
+    let mut resampled = Vec::with_capacity(target_len);
+    let ratio = (samples.len() - 1) as f32 / (target_len - 1).max(1) as f32;
+
+    for i in 0..target_len {
+        let pos = i as f32 * ratio;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let idx = pos as usize;
+        let frac = pos - idx as f32;
+
+        let sample = if idx + 1 < samples.len() {
+            samples[idx] * (1.0 - frac) + samples[idx + 1] * frac
+        } else {
+            samples[idx]
+        };
+
+        resampled.push(sample);
+    }
+
+    resampled
 }
 
 /// PCMサンプルをノーマライズ（最大絶対値を1.0以下に制限）
@@ -667,5 +811,238 @@ mod tests {
         // If default was 100, V+5 would clamp to 15 anyway
         // If default is 10, V+5 = V15
         assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_synthesize_tuplet_3_notes() {
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mml = Mml {
+            commands: vec![
+                Command::Tempo(Tempo { value: 120 }),
+                Command::Tuplet {
+                    commands: vec![
+                        Command::Note(Note {
+                            pitch: Pitch::C,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::D,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::E,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                    ],
+                    count: 3,
+                    base_duration: None,
+                },
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        // 120BPM, default length 4 (quarter note) = 0.5s base
+        // Each note = 0.5 / 3 = 0.1667s
+        // Total = 0.5s = 22050 samples
+        let expected_samples = 22050;
+        assert!(
+            (samples.len() as i32 - expected_samples).abs() <= 10,
+            "Expected ~{} samples, got {}",
+            expected_samples,
+            samples.len()
+        );
+    }
+
+    #[test]
+    fn test_synthesize_tuplet_with_base_duration() {
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mml = Mml {
+            commands: vec![
+                Command::Tempo(Tempo { value: 120 }),
+                Command::Tuplet {
+                    commands: vec![
+                        Command::Note(Note {
+                            pitch: Pitch::C,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::D,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::E,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                    ],
+                    count: 3,
+                    base_duration: Some(2),
+                },
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        // 120BPM, base_duration 2 (half note) = 1.0s base
+        // Each note = 1.0 / 3 = 0.333s
+        // Total = 1.0s = 44100 samples
+        let expected_samples = 44100;
+        assert!(
+            (samples.len() as i32 - expected_samples).abs() <= 10,
+            "Expected ~{} samples, got {}",
+            expected_samples,
+            samples.len()
+        );
+    }
+
+    #[test]
+    fn test_synthesize_tuplet_with_rest() {
+        use crate::mml::Rest;
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mml = Mml {
+            commands: vec![
+                Command::Tempo(Tempo { value: 120 }),
+                Command::Tuplet {
+                    commands: vec![
+                        Command::Note(Note {
+                            pitch: Pitch::C,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Rest(Rest {
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::E,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                    ],
+                    count: 3,
+                    base_duration: None,
+                },
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        let expected_samples = 22050;
+        assert!(
+            (samples.len() as i32 - expected_samples).abs() <= 10,
+            "Expected ~{} samples, got {}",
+            expected_samples,
+            samples.len()
+        );
+    }
+
+    #[test]
+    fn test_synthesize_tuplet_5_notes() {
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mml = Mml {
+            commands: vec![
+                Command::Tempo(Tempo { value: 120 }),
+                Command::Tuplet {
+                    commands: vec![
+                        Command::Note(Note {
+                            pitch: Pitch::C,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::D,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::E,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::F,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::Note(Note {
+                            pitch: Pitch::G,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                    ],
+                    count: 5,
+                    base_duration: None,
+                },
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        // 5 notes in 1 beat at 120bpm = 0.5s total
+        let expected_samples = 22050;
+        assert!(
+            (samples.len() as i32 - expected_samples).abs() <= 10,
+            "Expected ~{} samples, got {}",
+            expected_samples,
+            samples.len()
+        );
+    }
+
+    #[test]
+    fn test_synthesize_tuplet_octave_change() {
+        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+        let mml = Mml {
+            commands: vec![
+                Command::Tempo(Tempo { value: 120 }),
+                Command::Tuplet {
+                    commands: vec![
+                        Command::Note(Note {
+                            pitch: Pitch::C,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                        Command::OctaveUp,
+                        Command::Note(Note {
+                            pitch: Pitch::C,
+                            accidental: Accidental::Natural,
+                            duration: TiedDuration::new(Duration::new(None, 0)),
+                        }),
+                    ],
+                    count: 3,
+                    base_duration: None,
+                },
+            ],
+        };
+        let samples = synth.synthesize(&mml).unwrap();
+        assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn test_resample_linear_upsample() {
+        let input = vec![0.0, 1.0];
+        let result = super::resample_linear(&input, 5);
+        assert_eq!(result.len(), 5);
+        assert!((result[0] - 0.0).abs() < 0.01);
+        assert!((result[4] - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_resample_linear_downsample() {
+        let input = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+        let result = super::resample_linear(&input, 3);
+        assert_eq!(result.len(), 3);
+        assert!((result[0] - 0.0).abs() < 0.01);
+        assert!((result[2] - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_resample_linear_empty() {
+        let result = super::resample_linear(&[], 5);
+        assert_eq!(result.len(), 5);
+        assert!(result.iter().all(|&x| x == 0.0));
+    }
+
+    #[test]
+    fn test_resample_linear_target_zero() {
+        let input = vec![1.0, 2.0, 3.0];
+        let result = super::resample_linear(&input, 0);
+        assert!(result.is_empty());
     }
 }
