@@ -350,13 +350,10 @@ fn play_commands_recursive(
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::mml::{Accidental, Duration as MmlDuration, Note, Pitch, Rest, TiedDuration};
-
-    // ============================================================
-    // PlaybackState Tests
-    // ============================================================
 
     #[test]
     fn test_playback_state_default() {
