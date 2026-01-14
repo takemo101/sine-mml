@@ -43,7 +43,7 @@ pub enum Command {
         /// 繰り返し回数（1-99）
         repeat_count: usize,
     },
-    /// 連符コマンド: {commands}n[:base_duration]
+    /// 連符コマンド: `{commands}n[:base_duration]`
     ///
     /// # フィールド
     /// - `commands`: 連符内のコマンド列（`Note`, `Rest`, ネストした`Tuplet`）
