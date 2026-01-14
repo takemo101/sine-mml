@@ -495,7 +495,7 @@ mod tests {
     }
 
     /// TC-TUP-003: Colon トークン単体テスト
-    /// 注意: `:` は既存の LoopEscape と共用するため、Token::Colon は追加しない設計
+    /// 注意: `:` は既存の `LoopEscape` と共用するため、`Token::Colon` は追加しない設計
     /// （パーサーで文脈により判別）
     #[test]
     fn tokenize_colon_for_tuplet() {
