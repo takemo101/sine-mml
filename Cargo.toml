@@ -23,11 +23,16 @@ anyhow = "1.0.100"
 indicatif = "0.18.3"
 console = "0.16.2"
 comfy-table = "<7.2.0"
+midir = { version = "0.9", optional = true }
 
 [dev-dependencies]
 assert_cmd = "2.0"
 predicates = "3.0"
 tempfile = "3.8"
+
+[features]
+default = ["midi-output"]
+midi-output = ["dep:midir"]
 
 [[bin]]
 name = "sine-mml"
