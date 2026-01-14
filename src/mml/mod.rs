@@ -30,10 +30,14 @@ pub enum Token {
     LoopStart,
     /// Loop end bracket `]`
     LoopEnd,
-    /// Loop escape point `:`
+    /// Loop escape point `:` (also used for tuplet base duration)
     LoopEscape,
     /// Tie symbol `&` for connecting notes of the same pitch
     Tie,
+    /// Tuplet start brace `{`
+    TupletStart,
+    /// Tuplet end brace `}`
+    TupletEnd,
     Eof,
 }
 
