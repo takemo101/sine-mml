@@ -15,3 +15,8 @@ Cargo.lock
 *.swp
 *.swo
 *~
+
+# Claude Code workflow
+environments.json
+environments.json.lock
+.claude/settings.local.json
