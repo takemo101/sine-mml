@@ -43,6 +43,37 @@ pub enum Command {
         /// 繰り返し回数（1-99）
         repeat_count: usize,
     },
+    /// 連符コマンド: `{commands}n[:base_duration]`
+    ///
+    /// # フィールド
+    /// - `commands`: 連符内のコマンド列（`Note`, `Rest`, ネストした`Tuplet`）
+    /// - `count`: 連符数（2-99）
+    /// - `base_duration`: ベース音長（`:` の後の指定、`None`の場合はデフォルト音長を使用）
+    ///
+    /// # 例
+    /// ```ignore
+    /// // {CDE}3
+    /// Tuplet {
+    ///     commands: vec![Note(C), Note(D), Note(E)],
+    ///     count: 3,
+    ///     base_duration: None,
+    /// }
+    ///
+    /// // {CDE}3:2
+    /// Tuplet {
+    ///     commands: vec![Note(C), Note(D), Note(E)],
+    ///     count: 3,
+    ///     base_duration: Some(2),
+    /// }
+    /// ```
+    Tuplet {
+        /// 連符内のコマンド列
+        commands: Vec<Command>,
+        /// 連符数（2-99）
+        count: u8,
+        /// ベース音長（`None`の場合はデフォルト音長を使用）
+        base_duration: Option<u8>,
+    },
 }
 
 /// 単一の音価を表現
@@ -664,5 +695,182 @@ mod tests {
         };
         let beats = rest.total_beats(8);
         assert!((beats - 0.5).abs() < 0.001);
+    }
+
+    // ============================================================
+    // Command::Tuplet テスト（Issue #143）
+    // ============================================================
+
+    /// TC-TUP-AST-001: 基本的な連符コマンド生成
+    #[test]
+    fn tuplet_command_basic() {
+        // {CDE}3 - 3連符
+        let tuplet = Command::Tuplet {
+            commands: vec![
+                Command::Note(Note {
+                    pitch: Pitch::C,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::D,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::E,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+            ],
+            count: 3,
+            base_duration: None,
+        };
+
+        if let Command::Tuplet {
+            commands,
+            count,
+            base_duration,
+        } = tuplet
+        {
+            assert_eq!(commands.len(), 3);
+            assert_eq!(count, 3);
+            assert!(base_duration.is_none());
+        } else {
+            panic!("Expected Command::Tuplet");
+        }
+    }
+
+    /// TC-TUP-AST-002: ベース音長指定付き連符
+    #[test]
+    fn tuplet_command_with_base_duration() {
+        // {CDE}3:2 - 2分音符ベースの3連符
+        let tuplet = Command::Tuplet {
+            commands: vec![Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: TiedDuration::new(Duration::new(None, 0)),
+            })],
+            count: 3,
+            base_duration: Some(2),
+        };
+
+        if let Command::Tuplet {
+            base_duration,
+            count,
+            ..
+        } = tuplet
+        {
+            assert_eq!(count, 3);
+            assert_eq!(base_duration, Some(2));
+        } else {
+            panic!("Expected Command::Tuplet");
+        }
+    }
+
+    /// TC-TUP-AST-003: 連符内に休符を含む
+    #[test]
+    fn tuplet_command_with_rest() {
+        // {CRE}3 - 休符を含む3連符
+        let tuplet = Command::Tuplet {
+            commands: vec![
+                Command::Note(Note {
+                    pitch: Pitch::C,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+                Command::Rest(Rest {
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::E,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+            ],
+            count: 3,
+            base_duration: None,
+        };
+
+        if let Command::Tuplet { commands, .. } = tuplet {
+            assert_eq!(commands.len(), 3);
+            assert!(matches!(commands[1], Command::Rest(_)));
+        } else {
+            panic!("Expected Command::Tuplet");
+        }
+    }
+
+    /// TC-TUP-AST-004: ネストした連符
+    #[test]
+    fn tuplet_command_nested() {
+        // {{CDE}3 FG}5 - ネストした連符
+        let inner_tuplet = Command::Tuplet {
+            commands: vec![
+                Command::Note(Note {
+                    pitch: Pitch::C,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::D,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::E,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+            ],
+            count: 3,
+            base_duration: None,
+        };
+
+        let outer_tuplet = Command::Tuplet {
+            commands: vec![
+                inner_tuplet,
+                Command::Note(Note {
+                    pitch: Pitch::F,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+                Command::Note(Note {
+                    pitch: Pitch::G,
+                    accidental: Accidental::Natural,
+                    duration: TiedDuration::new(Duration::new(None, 0)),
+                }),
+            ],
+            count: 5,
+            base_duration: None,
+        };
+
+        if let Command::Tuplet {
+            commands, count, ..
+        } = outer_tuplet
+        {
+            assert_eq!(count, 5);
+            assert_eq!(commands.len(), 3);
+            // 最初の要素が内側の連符であることを確認
+            assert!(matches!(commands[0], Command::Tuplet { .. }));
+        } else {
+            panic!("Expected Command::Tuplet");
+        }
+    }
+
+    /// TC-TUP-AST-005: `Command::Tuplet` は `Clone` と `PartialEq` を実装
+    #[test]
+    fn tuplet_command_clone_and_eq() {
+        let tuplet = Command::Tuplet {
+            commands: vec![Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: TiedDuration::new(Duration::new(Some(4), 0)),
+            })],
+            count: 3,
+            base_duration: Some(4),
+        };
+
+        let cloned = tuplet.clone();
+        assert_eq!(tuplet, cloned);
     }
 }

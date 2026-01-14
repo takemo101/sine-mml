@@ -71,6 +71,11 @@ impl Synthesizer {
                 Command::Loop { .. } => {
                     unreachable!("Loop commands should be expanded before synthesis")
                 }
+                Command::Tuplet { .. } => {
+                    // TODO: 連符処理は後続Issueで実装
+                    // 現時点では連符はパース前に展開される想定
+                    unreachable!("Tuplet commands should be expanded before synthesis")
+                }
             }
         }
 
