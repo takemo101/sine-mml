@@ -51,10 +51,14 @@ pub fn expand_loop(
 /// 最大ループネスト深度
 const MAX_LOOP_DEPTH: usize = 5;
 
+/// 最大連符ネスト深度
+const MAX_TUPLET_DEPTH: usize = 5;
+
 pub struct Parser {
     tokens: Vec<TokenWithPos>,
     current: usize,
     loop_depth: usize,
+    tuplet_depth: usize,
 }
 
 impl Parser {
@@ -64,6 +68,7 @@ impl Parser {
             tokens,
             current: 0,
             loop_depth: 0,
+            tuplet_depth: 0,
         }
     }
 
@@ -119,6 +124,13 @@ impl Parser {
                 position: token_with_pos.position,
             }),
             Token::LoopEscape => Err(ParseError::LoopEscapeOutsideLoop {
+                position: token_with_pos.position,
+            }),
+            // 連符処理
+            Token::TupletStart => self.parse_tuplet(),
+            Token::TupletEnd => Err(ParseError::UnexpectedToken {
+                expected: "command".to_string(),
+                found: Token::TupletEnd,
                 position: token_with_pos.position,
             }),
             Token::Eof => Err(ParseError::UnexpectedEof {
@@ -202,6 +214,116 @@ impl Parser {
             escape_index,
             repeat_count,
         })
+    }
+
+    /// 連符構文を解析
+    ///
+    /// # 構文
+    /// `{<コマンド>...}n[:base_duration]`
+    ///
+    /// # Returns
+    /// * `Ok(Command::Tuplet)` - 連符コマンド
+    /// * `Err(ParseError)` - エラー
+    ///
+    /// # エラー
+    /// - `TupletNestTooDeep` - ネスト深度が5を超える
+    /// - `UnclosedTuplet` - 閉じ括弧がない
+    /// - `TupletCountMissing` - 連符数が指定されていない
+    /// - `InvalidTupletCount` - 連符数が2未満
+    fn parse_tuplet(&mut self) -> Result<Command, ParseError> {
+        // ネスト深度チェック（最大5階層）
+        if self.tuplet_depth >= MAX_TUPLET_DEPTH {
+            return Err(ParseError::TupletNestTooDeep {
+                max_depth: MAX_TUPLET_DEPTH,
+                position: self.peek().position,
+            });
+        }
+
+        let start_pos = self.peek().position;
+        self.advance(); // Consume '{'
+        self.tuplet_depth += 1; // ネスト深度を増やす
+
+        let mut commands = Vec::new();
+
+        // 括弧内のコマンドを解析
+        while !self.check_tuplet_end() {
+            if self.is_at_end() {
+                self.tuplet_depth -= 1; // エラー時も深度を戻す
+                return Err(ParseError::UnclosedTuplet {
+                    position: start_pos,
+                });
+            }
+
+            // 再帰的にコマンドをパース（ネスト対応）
+            let cmd = self.parse_command()?;
+            commands.push(cmd);
+        }
+
+        self.advance(); // Consume '}'
+        self.tuplet_depth -= 1; // ネスト深度を戻す
+
+        // 連符数を取得
+        if !self.check_number() {
+            return Err(ParseError::TupletCountMissing {
+                position: self.peek().position,
+            });
+        }
+
+        let token_with_pos = self.advance();
+        let count = if let Token::Number(n) = token_with_pos.token {
+            if n < 2 {
+                #[allow(clippy::cast_possible_truncation)]
+                return Err(ParseError::InvalidTupletCount {
+                    count: n as u8,
+                    position: token_with_pos.position,
+                });
+            }
+            if n > 99 {
+                #[allow(clippy::cast_possible_truncation)]
+                return Err(ParseError::InvalidTupletCount {
+                    count: 99,
+                    position: token_with_pos.position,
+                });
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                n as u8
+            }
+        } else {
+            unreachable!("check_number() returned true but token is not Number")
+        };
+
+        // ベース音長の指定（オプション）
+        let base_duration = if self.check_colon() {
+            self.advance(); // Consume ':'
+            if !self.check_number() {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "number".to_string(),
+                    found: self.peek().token.clone(),
+                    position: self.peek().position,
+                });
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            Some(self.consume_number_in_range(1, 64)? as u8)
+        } else {
+            None
+        };
+
+        Ok(Command::Tuplet {
+            commands,
+            count,
+            base_duration,
+        })
+    }
+
+    /// 次のトークンが連符終了かチェック
+    fn check_tuplet_end(&self) -> bool {
+        matches!(self.peek().token, Token::TupletEnd)
+    }
+
+    /// 次のトークンがコロン（LoopEscape）かチェック
+    fn check_colon(&self) -> bool {
+        matches!(self.peek().token, Token::LoopEscape)
     }
 
     fn check_loop_end(&self) -> bool {
@@ -1433,6 +1555,301 @@ mod tests {
                 assert_eq!(n.duration.tied[0].value, Some(4));
             }
             _ => panic!("Expected Note"),
+        }
+    }
+
+    // ======== Tuplet Tests (Issue #144) ========
+
+    /// TC-TUP-001: 基本的な3連符
+    #[test]
+    fn parse_tuplet_basic_3() {
+        let mml = parse("{CDE}3").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet {
+                commands,
+                count,
+                base_duration,
+            } => {
+                assert_eq!(commands.len(), 3);
+                assert_eq!(*count, 3);
+                assert_eq!(*base_duration, None);
+
+                // 各音符の確認
+                assert!(matches!(&commands[0], Command::Note(n) if n.pitch == Pitch::C));
+                assert!(matches!(&commands[1], Command::Note(n) if n.pitch == Pitch::D));
+                assert!(matches!(&commands[2], Command::Note(n) if n.pitch == Pitch::E));
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-002: ベース音長指定付き連符
+    #[test]
+    fn parse_tuplet_with_base_duration() {
+        let mml = parse("{CDE}3:2").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet {
+                commands,
+                count,
+                base_duration,
+            } => {
+                assert_eq!(commands.len(), 3);
+                assert_eq!(*count, 3);
+                assert_eq!(*base_duration, Some(2)); // 2分音符ベース
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-003: 連符数なしエラー
+    #[test]
+    fn parse_tuplet_count_missing_error() {
+        let err = parse("{CDE}").unwrap_err();
+        match err {
+            ParseError::TupletCountMissing { .. } => {}
+            _ => panic!("Expected TupletCountMissing, got {:?}", err),
+        }
+    }
+
+    /// TC-TUP-004: 無効な連符数（1未満）
+    #[test]
+    fn parse_tuplet_invalid_count_1() {
+        let err = parse("{CDE}1").unwrap_err();
+        match err {
+            ParseError::InvalidTupletCount { count, .. } => {
+                assert_eq!(count, 1);
+            }
+            _ => panic!("Expected InvalidTupletCount, got {:?}", err),
+        }
+    }
+
+    /// TC-TUP-005: 無効な連符数（0）
+    #[test]
+    fn parse_tuplet_invalid_count_0() {
+        let err = parse("{CDE}0").unwrap_err();
+        match err {
+            ParseError::InvalidTupletCount { count, .. } => {
+                assert_eq!(count, 0);
+            }
+            _ => panic!("Expected InvalidTupletCount, got {:?}", err),
+        }
+    }
+
+    /// TC-TUP-006: 閉じ括弧なしエラー
+    #[test]
+    fn parse_tuplet_unclosed_error() {
+        let err = parse("{CDE").unwrap_err();
+        match err {
+            ParseError::UnclosedTuplet { .. } => {}
+            _ => panic!("Expected UnclosedTuplet, got {:?}", err),
+        }
+    }
+
+    /// TC-TUP-007: 連符内に休符
+    #[test]
+    fn parse_tuplet_with_rest() {
+        let mml = parse("{CRE}3").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet { commands, .. } => {
+                assert_eq!(commands.len(), 3);
+                assert!(matches!(commands[0], Command::Note(_)));
+                assert!(matches!(commands[1], Command::Rest(_)));
+                assert!(matches!(commands[2], Command::Note(_)));
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-008: 連符内にオクターブ変更
+    #[test]
+    fn parse_tuplet_with_octave() {
+        let mml = parse("{C>DE}3").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet { commands, .. } => {
+                assert_eq!(commands.len(), 4);
+                assert!(matches!(commands[0], Command::Note(_)));
+                assert!(matches!(commands[1], Command::OctaveUp));
+                assert!(matches!(commands[2], Command::Note(_)));
+                assert!(matches!(commands[3], Command::Note(_)));
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-009: 5連符
+    #[test]
+    fn parse_tuplet_5() {
+        let mml = parse("{CDEFG}5").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet {
+                commands, count, ..
+            } => {
+                assert_eq!(commands.len(), 5);
+                assert_eq!(*count, 5);
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-010: 連符後に音符
+    #[test]
+    fn parse_tuplet_followed_by_notes() {
+        let mml = parse("{CDE}3 GAB").unwrap();
+        assert_eq!(mml.commands.len(), 4); // Tuplet + G + A + B
+        assert!(matches!(mml.commands[0], Command::Tuplet { .. }));
+        assert!(matches!(mml.commands[1], Command::Note(_)));
+        assert!(matches!(mml.commands[2], Command::Note(_)));
+        assert!(matches!(mml.commands[3], Command::Note(_)));
+    }
+
+    /// TC-TUP-011: ネストした連符（2階層）
+    #[test]
+    fn parse_tuplet_nested_2_levels() {
+        let mml = parse("{{CD}2 E}3").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet {
+                commands, count, ..
+            } => {
+                assert_eq!(*count, 3);
+                assert_eq!(commands.len(), 2); // inner tuplet + E
+                assert!(matches!(commands[0], Command::Tuplet { .. }));
+                assert!(matches!(commands[1], Command::Note(_)));
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-012: 5階層ネスト（上限）
+    #[test]
+    fn parse_tuplet_nest_5_levels() {
+        // 5階層ネスト - 許可
+        let mml = parse("{{{{{C}2}2}2}2}2").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        // 最外層が5連符であることを確認
+        assert!(matches!(mml.commands[0], Command::Tuplet { .. }));
+    }
+
+    /// TC-TUP-013: 6階層ネストエラー
+    #[test]
+    fn parse_tuplet_nest_6_levels_error() {
+        let err = parse("{{{{{{C}2}2}2}2}2}2").unwrap_err();
+        match err {
+            ParseError::TupletNestTooDeep { max_depth, .. } => {
+                assert_eq!(max_depth, 5);
+            }
+            _ => panic!("Expected TupletNestTooDeep, got {:?}", err),
+        }
+    }
+
+    /// TC-TUP-014: 連符内にタイ記号
+    #[test]
+    fn parse_tuplet_with_tie() {
+        let mml = parse("{C4&8 D}3").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet { commands, .. } => {
+                assert_eq!(commands.len(), 2);
+                match &commands[0] {
+                    Command::Note(n) => {
+                        assert!(n.duration.has_ties());
+                    }
+                    _ => panic!("Expected Note with tie"),
+                }
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-015: 連符内にループは許可（混在）
+    #[test]
+    fn parse_tuplet_with_loop() {
+        // 連符内にループ - 許可（Loopコマンドとして保持される）
+        let mml = parse("{[C]2 D}3").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet { commands, .. } => {
+                // ループはCommand::Loopとして保持される（展開はSynthesizerが行う）
+                assert_eq!(commands.len(), 2); // Loop + Note
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-016: 空の連符
+    #[test]
+    fn parse_tuplet_empty() {
+        let mml = parse("{}3").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet { commands, .. } => {
+                assert_eq!(commands.len(), 0);
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-017: 連符数99（上限）
+    #[test]
+    fn parse_tuplet_count_99() {
+        let mml = parse("{C}99").unwrap();
+        assert_eq!(mml.commands.len(), 1);
+        match &mml.commands[0] {
+            Command::Tuplet { count, .. } => {
+                assert_eq!(*count, 99);
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-018: ベース音長指定4（4分音符）
+    #[test]
+    fn parse_tuplet_base_duration_4() {
+        let mml = parse("{CDE}3:4").unwrap();
+        match &mml.commands[0] {
+            Command::Tuplet { base_duration, .. } => {
+                assert_eq!(*base_duration, Some(4));
+            }
+            _ => panic!("Expected Tuplet"),
+        }
+    }
+
+    /// TC-TUP-019: 不正な閉じ括弧のみ
+    #[test]
+    fn parse_tuplet_end_without_start() {
+        let err = parse("}3").unwrap_err();
+        match err {
+            ParseError::UnexpectedToken { .. } => {}
+            _ => panic!("Expected UnexpectedToken, got {:?}", err),
+        }
+    }
+
+    /// TC-TUP-020: 連符内で複数の個別音長指定
+    #[test]
+    fn parse_tuplet_individual_durations() {
+        let mml = parse("{C4 D8 E}3").unwrap();
+        match &mml.commands[0] {
+            Command::Tuplet { commands, .. } => {
+                assert_eq!(commands.len(), 3);
+                match &commands[0] {
+                    Command::Note(n) => assert_eq!(n.duration.base.value, Some(4)),
+                    _ => panic!("Expected Note"),
+                }
+                match &commands[1] {
+                    Command::Note(n) => assert_eq!(n.duration.base.value, Some(8)),
+                    _ => panic!("Expected Note"),
+                }
+                match &commands[2] {
+                    Command::Note(n) => assert_eq!(n.duration.base.value, None),
+                    _ => panic!("Expected Note"),
+                }
+            }
+            _ => panic!("Expected Tuplet"),
         }
     }
 }

@@ -62,6 +62,35 @@ pub enum ParseError {
     EmptyTieChain {
         position: usize,
     },
+    /// MML-E020: 連符の閉じ括弧がない
+    ///
+    /// 連符の開始括弧 `{` に対応する閉じ括弧 `}` がない。
+    /// 例: `{CDE` (閉じ括弧なし)
+    UnclosedTuplet {
+        position: usize,
+    },
+    /// MML-E021: 連符数が指定されていない
+    ///
+    /// 連符の閉じ括弧 `}` の後に連符数が指定されていない。
+    /// 例: `{CDE}` (連符数なし)
+    TupletCountMissing {
+        position: usize,
+    },
+    /// MML-E022: 無効な連符数
+    ///
+    /// 連符数が2未満。
+    /// 例: `{CDE}1`, `{CDE}0`
+    InvalidTupletCount {
+        count: u8,
+        position: usize,
+    },
+    /// MML-E023: 連符のネスト深度超過
+    ///
+    /// 連符のネスト深度が最大値（5階層）を超えている。
+    TupletNestTooDeep {
+        max_depth: usize,
+        position: usize,
+    },
 }
 
 impl std::fmt::Display for ParseError {
@@ -182,6 +211,27 @@ impl std::fmt::Display for ParseError {
                     "位置 {position}: タイ記号 '&' が音符/休符なしで使用されています"
                 )
             }
+            Self::UnclosedTuplet { position } => {
+                write!(f, "位置 {position}: 連符の閉じ括弧 '}}' がありません")
+            }
+            Self::TupletCountMissing { position } => {
+                write!(f, "位置 {position}: 連符数が指定されていません")
+            }
+            Self::InvalidTupletCount { count, position } => {
+                write!(
+                    f,
+                    "位置 {position}: 無効な連符数です（2以上を指定してください）: {count}"
+                )
+            }
+            Self::TupletNestTooDeep {
+                max_depth,
+                position,
+            } => {
+                write!(
+                    f,
+                    "位置 {position}: 連符のネストが深すぎます（最大{max_depth}階層）"
+                )
+            }
         }
     }
 }
@@ -277,6 +327,44 @@ mod tests {
         assert_eq!(
             err.to_string(),
             "位置 0: タイ記号 '&' が音符/休符なしで使用されています"
+        );
+    }
+
+    // ======== 連符エラーテスト (Issue #144) ========
+
+    #[test]
+    fn display_unclosed_tuplet() {
+        let err = ParseError::UnclosedTuplet { position: 0 };
+        assert_eq!(err.to_string(), "位置 0: 連符の閉じ括弧 '}' がありません");
+    }
+
+    #[test]
+    fn display_tuplet_count_missing() {
+        let err = ParseError::TupletCountMissing { position: 4 };
+        assert_eq!(err.to_string(), "位置 4: 連符数が指定されていません");
+    }
+
+    #[test]
+    fn display_invalid_tuplet_count() {
+        let err = ParseError::InvalidTupletCount {
+            count: 1,
+            position: 4,
+        };
+        assert_eq!(
+            err.to_string(),
+            "位置 4: 無効な連符数です（2以上を指定してください）: 1"
+        );
+    }
+
+    #[test]
+    fn display_tuplet_nest_too_deep() {
+        let err = ParseError::TupletNestTooDeep {
+            max_depth: 5,
+            position: 5,
+        };
+        assert_eq!(
+            err.to_string(),
+            "位置 5: 連符のネストが深すぎます（最大5階層）"
         );
     }
 }
