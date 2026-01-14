@@ -474,7 +474,7 @@ mod tests {
     // 連符トークンテスト（Issue #142）
     // ============================================================
 
-    /// TC-TUP-001: TupletStart トークン単体テスト
+    /// TC-TUP-001: `TupletStart` トークン単体テスト
     #[test]
     fn tokenize_tuplet_start() {
         let tokens = tokenize("{").unwrap();
