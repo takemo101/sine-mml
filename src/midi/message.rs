@@ -6,7 +6,7 @@
 use midir::MidiOutputConnection;
 
 use super::error::MidiError;
-use crate::mml::ast::{Accidental, Pitch};
+use crate::mml::{Accidental, Pitch};
 
 /// MIDI channel number (1-16)
 pub type MidiChannel = u8;
