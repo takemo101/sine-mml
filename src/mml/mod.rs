@@ -484,7 +484,7 @@ mod tests {
         assert_eq!(tokens[1].token, Token::Eof);
     }
 
-    /// TC-TUP-002: TupletEnd トークン単体テスト
+    /// TC-TUP-002: `TupletEnd` トークン単体テスト
     #[test]
     fn tokenize_tuplet_end() {
         let tokens = tokenize("}").unwrap();
