@@ -43,6 +43,37 @@ pub enum Command {
         /// 繰り返し回数（1-99）
         repeat_count: usize,
     },
+    /// 連符コマンド: {commands}n[:base_duration]
+    ///
+    /// # フィールド
+    /// - `commands`: 連符内のコマンド列（`Note`, `Rest`, ネストした`Tuplet`）
+    /// - `count`: 連符数（2-99）
+    /// - `base_duration`: ベース音長（`:` の後の指定、`None`の場合はデフォルト音長を使用）
+    ///
+    /// # 例
+    /// ```ignore
+    /// // {CDE}3
+    /// Tuplet {
+    ///     commands: vec![Note(C), Note(D), Note(E)],
+    ///     count: 3,
+    ///     base_duration: None,
+    /// }
+    ///
+    /// // {CDE}3:2
+    /// Tuplet {
+    ///     commands: vec![Note(C), Note(D), Note(E)],
+    ///     count: 3,
+    ///     base_duration: Some(2),
+    /// }
+    /// ```
+    Tuplet {
+        /// 連符内のコマンド列
+        commands: Vec<Command>,
+        /// 連符数（2-99）
+        count: u8,
+        /// ベース音長（`None`の場合はデフォルト音長を使用）
+        base_duration: Option<u8>,
+    },
 }
 
 /// 単一の音価を表現
