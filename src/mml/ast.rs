@@ -746,13 +746,11 @@ mod tests {
     fn tuplet_command_with_base_duration() {
         // {CDE}3:2 - 2分音符ベースの3連符
         let tuplet = Command::Tuplet {
-            commands: vec![
-                Command::Note(Note {
-                    pitch: Pitch::C,
-                    accidental: Accidental::Natural,
-                    duration: TiedDuration::new(Duration::new(None, 0)),
-                }),
-            ],
+            commands: vec![Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: TiedDuration::new(Duration::new(None, 0)),
+            })],
             count: 3,
             base_duration: Some(2),
         };
