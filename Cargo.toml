@@ -24,6 +24,7 @@ indicatif = "0.18.3"
 console = "0.16.2"
 comfy-table = "<7.2.0"
 midir = { version = "0.9", optional = true }
+ctrlc = { version = "3.4", optional = true }
 
 [dev-dependencies]
 assert_cmd = "2.0"
@@ -32,7 +33,7 @@ tempfile = "3.8"
 
 [features]
 default = ["midi-output"]
-midi-output = ["dep:midir"]
+midi-output = ["dep:midir", "dep:ctrlc"]
 
 [[bin]]
 name = "sine-mml"

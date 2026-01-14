@@ -57,6 +57,75 @@ pub struct PlayArgs {
     /// 履歴にメモを付与（最大500文字、UTF-8対応）
     #[arg(long)]
     pub note: Option<String>,
+
+    /// MIDI output device ID or name (enables MIDI mode)
+    #[cfg(feature = "midi-output")]
+    #[arg(long, value_name = "DEVICE")]
+    pub midi_out: Option<String>,
+
+    /// MIDI channel (1-16, default: 1)
+    #[cfg(feature = "midi-output")]
+    #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=16))]
+    pub midi_channel: u8,
+
+    /// List available MIDI devices
+    #[cfg(feature = "midi-output")]
+    #[arg(long)]
+    pub midi_list: bool,
+}
+
+#[cfg(test)]
+impl PlayArgs {
+    #[cfg(feature = "midi-output")]
+    #[must_use]
+    pub fn for_test(
+        mml: Option<String>,
+        history_id: Option<i64>,
+        file: Option<String>,
+        waveform: Waveform,
+        volume: f32,
+        note: Option<String>,
+    ) -> Self {
+        Self {
+            mml,
+            history_id,
+            file,
+            waveform,
+            volume,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note,
+            midi_out: None,
+            midi_channel: 1,
+            midi_list: false,
+        }
+    }
+
+    #[cfg(not(feature = "midi-output"))]
+    #[must_use]
+    pub fn for_test(
+        mml: Option<String>,
+        history_id: Option<i64>,
+        file: Option<String>,
+        waveform: Waveform,
+        volume: f32,
+        note: Option<String>,
+    ) -> Self {
+        Self {
+            mml,
+            history_id,
+            file,
+            waveform,
+            volume,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note,
+        }
+    }
 }
 
 #[derive(Args, Debug)]
@@ -353,11 +422,108 @@ mod tests {
 
     #[test]
     fn test_validate_note_char_count() {
-        // Character count (not byte count)
-        let note = "あ".repeat(500); // 1500 bytes but 500 characters
+        let note = "あ".repeat(500);
         assert!(validate_note(&note).is_ok());
 
-        let note = "あ".repeat(501); // 1503 bytes and 501 characters
+        let note = "あ".repeat(501);
         assert!(validate_note(&note).is_err());
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_midi_out_option() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--midi-out", "0"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.midi_out, Some("0".to_string()));
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_midi_out_with_device_name() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--midi-out", "IAC Driver"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.midi_out, Some("IAC Driver".to_string()));
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_midi_channel_default() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE"]);
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.midi_channel, 1);
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_midi_channel_valid() {
+        for ch in 1..=16 {
+            let result = Cli::try_parse_from(&[
+                "sine-mml",
+                "play",
+                "CDE",
+                "--midi-channel",
+                &ch.to_string(),
+            ]);
+            assert!(result.is_ok(), "Channel {ch} should be valid");
+            let args = match result.unwrap().command {
+                Command::Play(args) => args,
+                _ => panic!("Unexpected command"),
+            };
+            assert_eq!(args.midi_channel, ch);
+        }
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_midi_channel_invalid() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--midi-channel", "0"]);
+        assert!(result.is_err());
+
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--midi-channel", "17"]);
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_midi_list_option() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--midi-list"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert!(args.midi_list);
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_midi_combined_options() {
+        let result = Cli::try_parse_from(&[
+            "sine-mml",
+            "play",
+            "CDE",
+            "--midi-out",
+            "0",
+            "--midi-channel",
+            "10",
+        ]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert_eq!(args.midi_out, Some("0".to_string()));
+        assert_eq!(args.midi_channel, 10);
     }
 }
