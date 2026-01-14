@@ -96,10 +96,7 @@ mod tests {
     #[test]
     fn test_no_device_found_display() {
         let err = MidiError::NoDeviceFound;
-        assert_eq!(
-            err.to_string(),
-            "[MML-E015] MIDIデバイスが見つかりません"
-        );
+        assert_eq!(err.to_string(), "[MML-E015] MIDIデバイスが見つかりません");
     }
 
     #[test]
