@@ -30,10 +30,14 @@ pub enum Token {
     LoopStart,
     /// Loop end bracket `]`
     LoopEnd,
-    /// Loop escape point `:`
+    /// Loop escape point `:` (also used for tuplet base duration)
     LoopEscape,
     /// Tie symbol `&` for connecting notes of the same pitch
     Tie,
+    /// Tuplet start brace `{`
+    TupletStart,
+    /// Tuplet end brace `}`
+    TupletEnd,
     Eof,
 }
 
@@ -156,6 +160,18 @@ pub fn tokenize(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
             '&' => {
                 chars.next();
                 let tok = TokenWithPos::new(Token::Tie, position);
+                position += 1;
+                tok
+            }
+            '{' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::TupletStart, position);
+                position += 1;
+                tok
+            }
+            '}' => {
+                chars.next();
+                let tok = TokenWithPos::new(Token::TupletEnd, position);
                 position += 1;
                 tok
             }
@@ -452,5 +468,106 @@ mod tests {
         assert_eq!(tokens[1].token, Token::Number(4));
         assert_eq!(tokens[2].token, Token::Tie);
         assert_eq!(tokens[3].token, Token::Number(8));
+    }
+
+    // ============================================================
+    // 連符トークンテスト（Issue #142）
+    // ============================================================
+
+    /// TC-TUP-001: `TupletStart` トークン単体テスト
+    #[test]
+    fn tokenize_tuplet_start() {
+        let tokens = tokenize("{").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::TupletStart);
+        assert_eq!(tokens[0].position, 0);
+        assert_eq!(tokens[1].token, Token::Eof);
+    }
+
+    /// TC-TUP-002: `TupletEnd` トークン単体テスト
+    #[test]
+    fn tokenize_tuplet_end() {
+        let tokens = tokenize("}").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::TupletEnd);
+        assert_eq!(tokens[0].position, 0);
+        assert_eq!(tokens[1].token, Token::Eof);
+    }
+
+    /// TC-TUP-003: Colon トークン単体テスト
+    /// 注意: `:` は既存の `LoopEscape` と共用するため、`Token::Colon` は追加しない設計
+    /// （パーサーで文脈により判別）
+    #[test]
+    fn tokenize_colon_for_tuplet() {
+        // `:` は LoopEscape としてトークン化される（連符でも同じトークン）
+        let tokens = tokenize(":").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token, Token::LoopEscape);
+        assert_eq!(tokens[0].position, 0);
+    }
+
+    /// TC-TUP-004: 単純な連符構文 `{CDE}3`
+    #[test]
+    fn tokenize_simple_tuplet() {
+        let tokens = tokenize("{CDE}3").unwrap();
+        assert_eq!(tokens.len(), 7);
+        assert_eq!(tokens[0].token, Token::TupletStart);
+        assert_eq!(tokens[0].position, 0);
+        assert_eq!(tokens[1].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[2].token, Token::Pitch(Pitch::D));
+        assert_eq!(tokens[3].token, Token::Pitch(Pitch::E));
+        assert_eq!(tokens[4].token, Token::TupletEnd);
+        assert_eq!(tokens[4].position, 4);
+        assert_eq!(tokens[5].token, Token::Number(3));
+        assert_eq!(tokens[6].token, Token::Eof);
+    }
+
+    /// TC-TUP-005: ベース音長指定付き連符 `{CDE}3:2`
+    #[test]
+    fn tokenize_tuplet_with_base_duration() {
+        let tokens = tokenize("{CDE}3:2").unwrap();
+        assert_eq!(tokens.len(), 9);
+        assert_eq!(tokens[0].token, Token::TupletStart);
+        assert_eq!(tokens[1].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[2].token, Token::Pitch(Pitch::D));
+        assert_eq!(tokens[3].token, Token::Pitch(Pitch::E));
+        assert_eq!(tokens[4].token, Token::TupletEnd);
+        assert_eq!(tokens[5].token, Token::Number(3));
+        assert_eq!(tokens[6].token, Token::LoopEscape); // `:` は LoopEscape として
+        assert_eq!(tokens[7].token, Token::Number(2));
+        assert_eq!(tokens[8].token, Token::Eof);
+    }
+
+    /// TC-TUP-006: 連符トークン位置テスト
+    #[test]
+    fn tokenize_tuplet_positions() {
+        let tokens = tokenize("{C}").unwrap();
+        assert_eq!(tokens[0].position, 0); // {
+        assert_eq!(tokens[1].position, 1); // C
+        assert_eq!(tokens[2].position, 2); // }
+    }
+
+    /// TC-TUP-007: 空白を含む連符
+    #[test]
+    fn tokenize_tuplet_with_whitespace() {
+        let tokens = tokenize("{ C D E }3").unwrap();
+        assert_eq!(tokens.len(), 7);
+        assert_eq!(tokens[0].token, Token::TupletStart);
+        assert_eq!(tokens[1].token, Token::Pitch(Pitch::C));
+        assert_eq!(tokens[2].token, Token::Pitch(Pitch::D));
+        assert_eq!(tokens[3].token, Token::Pitch(Pitch::E));
+        assert_eq!(tokens[4].token, Token::TupletEnd);
+        assert_eq!(tokens[5].token, Token::Number(3));
+    }
+
+    /// TC-TUP-008: ネストした連符（トークンレベル）
+    #[test]
+    fn tokenize_nested_tuplet() {
+        let tokens = tokenize("{{CDE}3 FG}5").unwrap();
+        assert_eq!(tokens[0].token, Token::TupletStart);
+        assert_eq!(tokens[1].token, Token::TupletStart);
+        // 中間のトークンは省略（詳細はパーサーで検証）
+        // 最後がEofであることを確認
+        assert_eq!(tokens.last().unwrap().token, Token::Eof);
     }
 }
