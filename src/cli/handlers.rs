@@ -201,7 +201,7 @@ pub fn play_handler(args: PlayArgs) -> Result<()> {
 
     #[cfg(feature = "midi-output")]
     if let Some(ref device) = args.midi_out {
-        return handle_midi_output(device, args.midi_channel, &mml_string, &ast);
+        return handle_midi_output(device, args.midi_channel, &mml_string, &ast, args.loop_play);
     }
 
     handle_audio_playback(&args, &mml_string, &ast)
