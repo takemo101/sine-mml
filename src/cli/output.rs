@@ -1,7 +1,9 @@
 use anyhow::Result;
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 /// 再生プログレスを表示し、再生時間分待機する
 ///
@@ -68,6 +70,49 @@ pub fn warning(msg: &str) {
     eprintln!("{}", style(msg).yellow());
 }
 
+/// MIDI再生プログレスを表示し、経過時間に基づいて更新する
+///
+/// # Arguments
+/// * `total_duration_ms` - 全体の再生時間（ミリ秒）
+/// * `interrupt` - 中断フラグ
+pub fn display_midi_progress(total_duration_ms: u64, interrupt: &Arc<AtomicBool>) {
+    if total_duration_ms == 0 {
+        return;
+    }
+
+    let pb = ProgressBar::new(100);
+    if let Ok(style) = ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {percent}% {msg}")
+    {
+        pb.set_style(style.progress_chars("#>-"));
+    }
+
+    let total_duration = Duration::from_millis(total_duration_ms);
+    pb.set_message(format!("{:.1}s", total_duration.as_secs_f64()));
+
+    let start = Instant::now();
+    let update_interval = Duration::from_millis(100); // 10Hz
+
+    while !interrupt.load(Ordering::Relaxed) {
+        let elapsed = start.elapsed();
+        if elapsed >= total_duration {
+            break;
+        }
+
+        #[allow(clippy::cast_possible_truncation)]
+        let progress = if total_duration.as_millis() > 0 {
+            (elapsed.as_millis() * 100 / total_duration.as_millis()) as u64
+        } else {
+            0
+        };
+        pb.set_position(progress.min(100));
+
+        std::thread::sleep(update_interval);
+    }
+
+    pb.finish_with_message("Done");
+}
+
 /// エクスポート用プログレスバーを作成
 ///
 /// # Errors
@@ -111,5 +156,41 @@ mod tests {
     #[test]
     fn test_info_does_not_panic() {
         info("test info");
+    }
+
+    #[test]
+    fn test_display_midi_progress_zero_duration() {
+        let interrupt = Arc::new(AtomicBool::new(false));
+        // 0ミリ秒の場合は即座に返る（panicしない）
+        display_midi_progress(0, &interrupt);
+    }
+
+    #[test]
+    fn test_display_midi_progress_interrupt_immediately() {
+        let interrupt = Arc::new(AtomicBool::new(true));
+        // 即座に中断フラグが立っている場合、ループに入らず終了
+        display_midi_progress(500, &interrupt);
+    }
+
+    #[test]
+    fn test_display_midi_progress_short_duration() {
+        let interrupt = Arc::new(AtomicBool::new(false));
+        let start = Instant::now();
+
+        // 別スレッドで150ms後に中断
+        let interrupt_clone = Arc::clone(&interrupt);
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            interrupt_clone.store(true, Ordering::SeqCst);
+        });
+
+        display_midi_progress(300, &interrupt);
+        let elapsed = start.elapsed().as_millis();
+
+        // 約150ms付近で終了（100ms~400ms許容）
+        assert!(
+            (100..=400).contains(&elapsed),
+            "Expected ~150ms, got {elapsed}ms"
+        );
     }
 }
