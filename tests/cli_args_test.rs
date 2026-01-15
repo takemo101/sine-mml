@@ -171,7 +171,7 @@ fn test_default_values() {
         panic!("Unexpected command")
     };
     assert_eq!(args.metronome_beat, 4);
-    assert_eq!(args.metronome_volume, 0.3);
+    assert!((args.metronome_volume - 0.3).abs() < f32::EPSILON);
     assert_eq!(args.note, None);
 }
 
