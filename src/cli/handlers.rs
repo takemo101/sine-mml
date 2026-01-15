@@ -10,6 +10,11 @@ use crate::cli::args::{MidiArgs, MidiSubcommand};
 use crate::midi;
 
 fn determine_should_save(args: &PlayArgs) -> bool {
+    // no_historyが指定されている場合は保存しない
+    if args.no_history {
+        return false;
+    }
+
     // Save history when MML is provided directly or from file (not from history)
     matches!(
         (&args.mml, &args.file, args.history_id),
@@ -165,6 +170,11 @@ fn print_completion_message(history_id_opt: Option<i64>, note: Option<&String>) 
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn play_handler(args: PlayArgs) -> Result<()> {
+    // 警告: --no-history と --note の併用
+    if args.no_history && args.note.is_some() {
+        output::warning("Warning: --note is ignored when --no-history is specified");
+    }
+
     let mml_string = resolve_mml_input(&args)?;
 
     if let Some(ref note) = args.note {
@@ -503,6 +513,48 @@ mod tests {
             Waveform::Sine,
             1.0,
             None,
+        );
+        assert!(determine_should_save(&args));
+    }
+
+    #[test]
+    fn test_should_save_flag_no_history_mml_input() {
+        let args = PlayArgs::for_test_with_no_history(
+            Some("CDE".to_string()),
+            None,
+            None,
+            Waveform::Sine,
+            1.0,
+            None,
+            true,
+        );
+        assert!(!determine_should_save(&args));
+    }
+
+    #[test]
+    fn test_should_save_flag_no_history_file_input() {
+        let args = PlayArgs::for_test_with_no_history(
+            None,
+            None,
+            Some("test.mml".to_string()),
+            Waveform::Sine,
+            1.0,
+            None,
+            true,
+        );
+        assert!(!determine_should_save(&args));
+    }
+
+    #[test]
+    fn test_should_save_flag_no_history_false() {
+        let args = PlayArgs::for_test_with_no_history(
+            Some("CDE".to_string()),
+            None,
+            None,
+            Waveform::Sine,
+            1.0,
+            None,
+            false,
         );
         assert!(determine_should_save(&args));
     }
