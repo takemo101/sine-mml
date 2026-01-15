@@ -13,6 +13,8 @@
 | `retro-game.mml` | レトロゲーム風 | square |
 | `dynamics.mml` | ダイナミクス（音量変化）の例 | sine |
 | `nested-loop.mml` | ネストループの例 | sine |
+| `tuplet.mml` | 連符（n連符）の基本例（v3.0新機能） | sine |
+| `tuplet-advanced.mml` | 連符の応用例（ネスト、休符、ループ組み合わせ） | sine |
 
 ## 使い方
 
@@ -44,6 +46,9 @@ sine-mml play --file examples/scale.mml --metronome --metronome-beat 8
 - `V+n` / `V-n` - 音量（相対値）
 - `[...]n` - ループ（n回繰り返し）
 - `[...:...]n` - 脱出ポイント付きループ
+- `{...}n` - 連符（n連符）
+- `{...}n:m` - ベース音長指定の連符
 - `.` - 付点
+- `&` - タイ記号（音符を連結）
 
 詳細は [USAGE.md](../USAGE.md) を参照してください。
