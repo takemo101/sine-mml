@@ -257,7 +257,7 @@ fn history_logic(db: &db::Database) -> Result<()> {
     let history = db.list(Some(20)).context("履歴の取得に失敗しました")?;
 
     if history.is_empty() {
-        println!("履歴がありません");
+        output::message("履歴がありません");
         return Ok(());
     }
 
