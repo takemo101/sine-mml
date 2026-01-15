@@ -60,6 +60,16 @@ pub fn info(msg: &str) {
     println!("{}", style(msg).cyan());
 }
 
+/// 通常のメッセージを表示（スタイルなし）
+pub fn message(msg: &str) {
+    println!("{msg}");
+}
+
+/// インデント付きメッセージを表示
+pub fn message_indent(msg: &str) {
+    println!("  {msg}");
+}
+
 /// エラーメッセージを赤色で表示
 pub fn error(msg: &str) {
     eprintln!("{}", style(msg).red().bold());

@@ -26,11 +26,11 @@ fn determine_should_save(args: &PlayArgs) -> bool {
 fn handle_midi_list() -> Result<()> {
     let devices = midi::list_midi_devices()?;
     if devices.is_empty() {
-        println!("MIDIデバイスが見つかりません");
+        output::message("MIDIデバイスが見つかりません");
     } else {
-        println!("利用可能なMIDIデバイス:");
+        output::message("利用可能なMIDIデバイス:");
         for (i, name) in devices.iter().enumerate() {
-            println!("  {i}: {name}");
+            output::message_indent(&format!("{i}: {name}"));
         }
     }
     Ok(())
@@ -65,10 +65,10 @@ fn handle_midi_output(
     })
     .context("Ctrl+Cハンドラーの設定に失敗しました")?;
 
-    println!("MIDI再生中... (Ctrl+Cで停止)");
-    println!("  MML: {}", truncate_mml(mml_string, 50));
-    println!("  デバイス: {device}");
-    println!("  チャンネル: {channel}");
+    output::info("MIDI再生中... (Ctrl+Cで停止)");
+    output::message_indent(&format!("MML: {}", truncate_mml(mml_string, 50)));
+    output::message_indent(&format!("デバイス: {device}"));
+    output::message_indent(&format!("チャンネル: {channel}"));
 
     if loop_play {
         // ループ再生: プログレスバーなし
@@ -257,7 +257,7 @@ fn history_logic(db: &db::Database) -> Result<()> {
     let history = db.list(Some(20)).context("履歴の取得に失敗しました")?;
 
     if history.is_empty() {
-        println!("履歴がありません");
+        output::message("履歴がありません");
         return Ok(());
     }
 
@@ -284,7 +284,7 @@ fn history_logic(db: &db::Database) -> Result<()> {
         ]);
     }
 
-    println!("{table}");
+    output::message(&table.to_string());
     Ok(())
 }
 
