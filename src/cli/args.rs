@@ -86,6 +86,10 @@ pub struct PlayArgs {
     #[cfg(feature = "midi-output")]
     #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=16))]
     pub midi_channel: u8,
+
+    /// 履歴に保存しない
+    #[arg(long, short = 'N', default_value_t = false)]
+    pub no_history: bool,
 }
 
 #[cfg(test)]
@@ -113,6 +117,7 @@ impl PlayArgs {
             note,
             midi_out: None,
             midi_channel: 1,
+            no_history: false,
         }
     }
 
@@ -137,6 +142,63 @@ impl PlayArgs {
             metronome_beat: 4,
             metronome_volume: 0.3,
             note,
+            no_history: false,
+        }
+    }
+
+    /// テスト用のファクトリーメソッド（`no_history`指定可能版）
+    #[cfg(feature = "midi-output")]
+    #[must_use]
+    pub fn for_test_with_no_history(
+        mml: Option<String>,
+        history_id: Option<i64>,
+        file: Option<String>,
+        waveform: Waveform,
+        volume: f32,
+        note: Option<String>,
+        no_history: bool,
+    ) -> Self {
+        Self {
+            mml,
+            history_id,
+            file,
+            waveform,
+            volume,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note,
+            midi_out: None,
+            midi_channel: 1,
+            no_history,
+        }
+    }
+
+    /// テスト用のファクトリーメソッド（`no_history`指定可能版）
+    #[cfg(not(feature = "midi-output"))]
+    #[must_use]
+    pub fn for_test_with_no_history(
+        mml: Option<String>,
+        history_id: Option<i64>,
+        file: Option<String>,
+        waveform: Waveform,
+        volume: f32,
+        note: Option<String>,
+        no_history: bool,
+    ) -> Self {
+        Self {
+            mml,
+            history_id,
+            file,
+            waveform,
+            volume,
+            loop_play: false,
+            metronome: false,
+            metronome_beat: 4,
+            metronome_volume: 0.3,
+            note,
+            no_history,
         }
     }
 }
@@ -539,5 +601,65 @@ mod tests {
         };
         assert_eq!(args.midi_out, Some("0".to_string()));
         assert_eq!(args.midi_channel, 10);
+    }
+
+    #[test]
+    fn test_no_history_long_flag() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--no-history"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert!(args.no_history);
+    }
+
+    #[test]
+    fn test_no_history_short_flag() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "-N"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert!(args.no_history);
+    }
+
+    #[test]
+    fn test_no_history_default() {
+        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert!(!args.no_history);
+    }
+
+    #[cfg(feature = "midi-output")]
+    #[test]
+    fn test_no_history_with_midi_out() {
+        let result =
+            Cli::try_parse_from(&["sine-mml", "play", "CDE", "--midi-out", "0", "--no-history"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert!(args.no_history);
+        assert_eq!(args.midi_out, Some("0".to_string()));
+    }
+
+    #[test]
+    fn test_no_history_with_loop_play() {
+        let result =
+            Cli::try_parse_from(&["sine-mml", "play", "CDE", "--loop-play", "--no-history"]);
+        assert!(result.is_ok());
+        let args = match result.unwrap().command {
+            Command::Play(args) => args,
+            _ => panic!("Unexpected command"),
+        };
+        assert!(args.no_history);
+        assert!(args.loop_play);
     }
 }
