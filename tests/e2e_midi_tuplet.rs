@@ -8,7 +8,7 @@ mod midi_tests {
     /// MIDIデバイスが存在する環境では、無効なデバイスIDエラーを検証
     #[test]
     fn test_midi_invalid_device_error() {
-        let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
         cmd.args(["play", "CDEF", "--midi-out", "99"]);
 
         // エラー終了することを確認（デバイス不在またはデバイスID無効）
@@ -21,7 +21,7 @@ mod midi_tests {
     /// CI環境ではMIDIデバイス不在エラーが先に発生するため、どちらのエラーも許容
     #[test]
     fn test_midi_invalid_channel_error() {
-        let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
         cmd.args(["play", "CDEF", "--midi-out", "0", "--midi-channel", "0"]);
 
         // エラー終了することを確認
@@ -36,7 +36,7 @@ mod tuplet_tests {
 
     #[test]
     fn test_tuplet_playback() {
-        let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
         cmd.args(["play", "{CDE}3"]);
 
         cmd.assert().success();
@@ -44,7 +44,7 @@ mod tuplet_tests {
 
     #[test]
     fn test_invalid_tuplet_count_error() {
-        let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
         cmd.args(["play", "{CDE}1"]);
 
         cmd.assert()
@@ -54,7 +54,7 @@ mod tuplet_tests {
 
     #[test]
     fn test_tuplet_nest_too_deep_error() {
-        let mut cmd = Command::cargo_bin("sine-mml").unwrap();
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_sine-mml"));
         cmd.args(["play", "{{{{{{C}2}2}2}2}2}2"]);
 
         cmd.assert()
