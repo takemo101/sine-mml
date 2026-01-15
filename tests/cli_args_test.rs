@@ -152,7 +152,7 @@ fn test_metronome_volume_valid() {
         let Command::Play(args) = result.unwrap().command else {
             panic!("Unexpected command")
         };
-        assert_eq!(args.metronome_volume, vol.parse::<f32>().unwrap());
+        assert!((args.metronome_volume - vol.parse::<f32>().unwrap()).abs() < f32::EPSILON);
     }
 }
 
