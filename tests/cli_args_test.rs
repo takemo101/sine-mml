@@ -5,7 +5,7 @@
 use sine_mml::cli::args::{validate_note, validate_volume, Cli, Command, Waveform, MAX_NOTE_LENGTH};
 
 #[cfg(feature = "midi-output")]
-use sine_mml::cli::args::{MidiArgs, MidiSubcommand};
+use sine_mml::cli::args::MidiSubcommand;
 
 use clap::Parser;
 
