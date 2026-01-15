@@ -550,7 +550,8 @@ impl Parser {
         matches!(self.peek().token, Token::Tie)
     }
 
-    fn consume_tie(&mut self) -> bool {
+    /// Consume a Tie token if present
+    pub fn consume_tie(&mut self) -> bool {
         if self.is_next_tie() {
             self.advance();
             true
