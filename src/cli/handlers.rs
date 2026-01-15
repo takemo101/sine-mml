@@ -45,7 +45,13 @@ pub fn midi_handler(args: MidiArgs) -> Result<()> {
 }
 
 #[cfg(feature = "midi-output")]
-fn handle_midi_output(device: &str, channel: u8, mml_string: &str, ast: &mml::Mml) -> Result<()> {
+fn handle_midi_output(
+    device: &str,
+    channel: u8,
+    mml_string: &str,
+    ast: &mml::Mml,
+    loop_play: bool,
+) -> Result<()> {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
@@ -59,13 +65,23 @@ fn handle_midi_output(device: &str, channel: u8, mml_string: &str, ast: &mml::Mm
     })
     .context("Ctrl+Cハンドラーの設定に失敗しました")?;
 
-    println!("MIDI再生中... (Ctrl+Cで停止)");
+    if loop_play {
+        println!("MIDIループ再生中... (Ctrl+Cで停止)");
+    } else {
+        println!("MIDI再生中... (Ctrl+Cで停止)");
+    }
     println!("  MML: {}", truncate_mml(mml_string, 50));
     println!("  デバイス: {device}");
     println!("  チャンネル: {channel}");
 
-    midi::play_midi_stream_interruptible(&mut conn, &ast.commands, channel, &interrupt)
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    loop {
+        midi::play_midi_stream_interruptible(&mut conn, &ast.commands, channel, &interrupt)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+        if interrupt.load(Ordering::Relaxed) || !loop_play {
+            break;
+        }
+    }
 
     if interrupt.load(Ordering::Relaxed) {
         output::success("✓ MIDI再生を中断しました");
