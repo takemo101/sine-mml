@@ -544,7 +544,9 @@ impl Parser {
         matches!(self.peek().token, Token::Flat)
     }
 
-    fn is_next_tie(&self) -> bool {
+    /// Check if the next token is a Tie
+    #[must_use]
+    pub fn is_next_tie(&self) -> bool {
         matches!(self.peek().token, Token::Tie)
     }
 
