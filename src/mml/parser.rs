@@ -597,7 +597,9 @@ impl Parser {
         }
     }
 
-    fn peek(&self) -> &TokenWithPos {
+    /// Peek at the current token without consuming it
+    #[must_use]
+    pub fn peek(&self) -> &TokenWithPos {
         if self.current >= self.tokens.len() {
             &self.tokens[self.tokens.len() - 1] // Return EOF which should be last
         } else {
