@@ -26,11 +26,11 @@ fn determine_should_save(args: &PlayArgs) -> bool {
 fn handle_midi_list() -> Result<()> {
     let devices = midi::list_midi_devices()?;
     if devices.is_empty() {
-        println!("MIDIデバイスが見つかりません");
+        output::message("MIDIデバイスが見つかりません");
     } else {
-        println!("利用可能なMIDIデバイス:");
+        output::message("利用可能なMIDIデバイス:");
         for (i, name) in devices.iter().enumerate() {
-            println!("  {i}: {name}");
+            output::message_indent(&format!("{i}: {name}"));
         }
     }
     Ok(())
