@@ -16,6 +16,25 @@ pub enum Command {
     Export(ExportArgs),
     /// Clear all playback history
     ClearHistory,
+    /// MIDI device management
+    #[cfg(feature = "midi-output")]
+    Midi(MidiArgs),
+}
+
+/// MIDI subcommand arguments
+#[cfg(feature = "midi-output")]
+#[derive(Args, Debug)]
+pub struct MidiArgs {
+    #[command(subcommand)]
+    pub command: MidiSubcommand,
+}
+
+/// MIDI subcommands
+#[cfg(feature = "midi-output")]
+#[derive(Subcommand, Debug)]
+pub enum MidiSubcommand {
+    /// List available MIDI output devices
+    List,
 }
 
 #[derive(Args, Debug)]
@@ -67,11 +86,6 @@ pub struct PlayArgs {
     #[cfg(feature = "midi-output")]
     #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=16))]
     pub midi_channel: u8,
-
-    /// List available MIDI devices
-    #[cfg(feature = "midi-output")]
-    #[arg(long)]
-    pub midi_list: bool,
 }
 
 #[cfg(test)]
@@ -99,7 +113,6 @@ impl PlayArgs {
             note,
             midi_out: None,
             midi_channel: 1,
-            midi_list: false,
         }
     }
 
@@ -496,14 +509,15 @@ mod tests {
 
     #[cfg(feature = "midi-output")]
     #[test]
-    fn test_midi_list_option() {
-        let result = Cli::try_parse_from(&["sine-mml", "play", "CDE", "--midi-list"]);
+    fn test_midi_list_subcommand() {
+        let result = Cli::try_parse_from(&["sine-mml", "midi", "list"]);
         assert!(result.is_ok());
-        let args = match result.unwrap().command {
-            Command::Play(args) => args,
-            _ => panic!("Unexpected command"),
-        };
-        assert!(args.midi_list);
+        match result.unwrap().command {
+            Command::Midi(args) => match args.command {
+                MidiSubcommand::List => {}
+            },
+            _ => panic!("Expected Midi command"),
+        }
     }
 
     #[cfg(feature = "midi-output")]
