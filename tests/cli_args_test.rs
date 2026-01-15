@@ -2,7 +2,9 @@
 //!
 //! Moved from src/cli/args.rs to reduce module size
 
-use sine_mml::cli::args::{validate_note, validate_volume, Cli, Command, Waveform, MAX_NOTE_LENGTH};
+use sine_mml::cli::args::{
+    validate_note, validate_volume, Cli, Command, Waveform, MAX_NOTE_LENGTH,
+};
 
 #[cfg(feature = "midi-output")]
 use sine_mml::cli::args::MidiSubcommand;
@@ -130,8 +132,7 @@ fn test_bpm_option_removed() {
 #[test]
 fn test_metronome_beat_valid() {
     for beat in ["4", "8", "16"] {
-        let result =
-            Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-beat", beat]);
+        let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-beat", beat]);
         assert!(result.is_ok(), "Should accept metronome-beat {beat}");
         let args = match result.unwrap().command {
             Command::Play(args) => args,
@@ -144,8 +145,7 @@ fn test_metronome_beat_valid() {
 #[test]
 fn test_metronome_beat_invalid() {
     for beat in ["5", "12", "32", "abc"] {
-        let result =
-            Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-beat", beat]);
+        let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-beat", beat]);
         assert!(result.is_err(), "Should reject metronome-beat {beat}");
     }
 }
@@ -153,8 +153,7 @@ fn test_metronome_beat_invalid() {
 #[test]
 fn test_metronome_volume_valid() {
     for vol in ["0.0", "0.5", "1.0"] {
-        let result =
-            Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-volume", vol]);
+        let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-volume", vol]);
         assert!(result.is_ok(), "Should accept metronome-volume {vol}");
         let args = match result.unwrap().command {
             Command::Play(args) => args,
@@ -167,8 +166,7 @@ fn test_metronome_volume_valid() {
 #[test]
 fn test_metronome_volume_out_of_range() {
     for vol in ["-0.1", "1.1", "abc"] {
-        let result =
-            Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-volume", vol]);
+        let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-volume", vol]);
         assert!(result.is_err(), "Should reject metronome-volume {vol}");
     }
 }
@@ -282,13 +280,8 @@ fn test_midi_channel_default() {
 #[test]
 fn test_midi_channel_valid() {
     for ch in 1..=16 {
-        let result = Cli::try_parse_from([
-            "sine-mml",
-            "play",
-            "CDE",
-            "--midi-channel",
-            &ch.to_string(),
-        ]);
+        let result =
+            Cli::try_parse_from(["sine-mml", "play", "CDE", "--midi-channel", &ch.to_string()]);
         assert!(result.is_ok(), "Channel {ch} should be valid");
         let args = match result.unwrap().command {
             Command::Play(args) => args,
@@ -391,8 +384,7 @@ fn test_no_history_with_midi_out() {
 
 #[test]
 fn test_no_history_with_loop_play() {
-    let result =
-        Cli::try_parse_from(["sine-mml", "play", "CDE", "--loop-play", "--no-history"]);
+    let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--loop-play", "--no-history"]);
     assert!(result.is_ok());
     let args = match result.unwrap().command {
         Command::Play(args) => args,
