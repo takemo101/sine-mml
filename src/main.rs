@@ -5,6 +5,9 @@ use sine_mml::cli::handlers::{
 };
 use sine_mml::cli::output;
 
+#[cfg(feature = "midi-output")]
+use sine_mml::cli::handlers::midi_handler;
+
 fn main() {
     let cli = Cli::parse();
 
@@ -13,6 +16,8 @@ fn main() {
         Command::History => history_handler(),
         Command::Export(args) => export_handler(args),
         Command::ClearHistory => clear_history_handler(),
+        #[cfg(feature = "midi-output")]
+        Command::Midi(args) => midi_handler(args),
     };
 
     if let Err(e) = result {

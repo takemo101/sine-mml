@@ -5,6 +5,8 @@ use anyhow::{bail, Context, Result};
 use comfy_table::Table;
 
 #[cfg(feature = "midi-output")]
+use crate::cli::args::{MidiArgs, MidiSubcommand};
+#[cfg(feature = "midi-output")]
 use crate::midi;
 
 fn determine_should_save(args: &PlayArgs) -> bool {
@@ -15,16 +17,6 @@ fn determine_should_save(args: &PlayArgs) -> bool {
     )
 }
 
-/// playサブコマンドのハンドラー
-///
-/// # Errors
-///
-/// Returns `anyhow::Result` if:
-/// - Arguments are invalid (e.g. both MML and `history_id` are missing)
-/// - MML parsing fails
-/// - Audio synthesis fails
-/// - Audio playback fails
-/// - History saving fails
 #[cfg(feature = "midi-output")]
 fn handle_midi_list() -> Result<()> {
     let devices = midi::list_midi_devices()?;
@@ -37,6 +29,14 @@ fn handle_midi_list() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(feature = "midi-output")]
+#[allow(clippy::needless_pass_by_value)]
+pub fn midi_handler(args: MidiArgs) -> Result<()> {
+    match args.command {
+        MidiSubcommand::List => handle_midi_list(),
+    }
 }
 
 #[cfg(feature = "midi-output")]
@@ -165,11 +165,6 @@ fn print_completion_message(history_id_opt: Option<i64>, note: Option<&String>) 
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn play_handler(args: PlayArgs) -> Result<()> {
-    #[cfg(feature = "midi-output")]
-    if args.midi_list {
-        return handle_midi_list();
-    }
-
     let mml_string = resolve_mml_input(&args)?;
 
     if let Some(ref note) = args.note {
