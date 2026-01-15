@@ -65,10 +65,10 @@ fn handle_midi_output(
     })
     .context("Ctrl+Cハンドラーの設定に失敗しました")?;
 
-    println!("MIDI再生中... (Ctrl+Cで停止)");
-    println!("  MML: {}", truncate_mml(mml_string, 50));
-    println!("  デバイス: {device}");
-    println!("  チャンネル: {channel}");
+    output::info("MIDI再生中... (Ctrl+Cで停止)");
+    output::message_indent(&format!("MML: {}", truncate_mml(mml_string, 50)));
+    output::message_indent(&format!("デバイス: {device}"));
+    output::message_indent(&format!("チャンネル: {channel}"));
 
     if loop_play {
         // ループ再生: プログレスバーなし
