@@ -65,28 +65,45 @@ fn handle_midi_output(
     })
     .context("Ctrl+Cハンドラーの設定に失敗しました")?;
 
-    if loop_play {
-        println!("MIDIループ再生中... (Ctrl+Cで停止)");
-    } else {
-        println!("MIDI再生中... (Ctrl+Cで停止)");
-    }
+    println!("MIDI再生中... (Ctrl+Cで停止)");
     println!("  MML: {}", truncate_mml(mml_string, 50));
     println!("  デバイス: {device}");
     println!("  チャンネル: {channel}");
 
-    loop {
+    if loop_play {
+        // ループ再生: プログレスバーなし
+        loop {
+            if interrupt.load(Ordering::Relaxed) {
+                break;
+            }
+            midi::play_midi_stream_interruptible(&mut conn, &ast.commands, channel, &interrupt)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+        }
+    } else {
+        // 単発再生: プログレスバー付き
+        let total_duration_ms = midi::calculate_total_duration_ms(&ast.commands);
+
+        // プログレスバースレッドを起動
+        let interrupt_for_progress = Arc::clone(&interrupt);
+        let progress_handle = std::thread::spawn(move || {
+            output::display_midi_progress(total_duration_ms, &interrupt_for_progress);
+        });
+
+        // MIDI再生実行
         midi::play_midi_stream_interruptible(&mut conn, &ast.commands, channel, &interrupt)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        if interrupt.load(Ordering::Relaxed) || !loop_play {
-            break;
-        }
+        // プログレスバースレッドの終了を待機
+        interrupt.store(true, Ordering::SeqCst);
+        let _ = progress_handle.join();
     }
 
-    if interrupt.load(Ordering::Relaxed) {
+    if interrupt.load(Ordering::Relaxed) && !loop_play {
         output::success("✓ MIDI再生を中断しました");
-    } else {
+    } else if !loop_play {
         output::success("✓ MIDI再生完了");
+    } else {
+        output::success("✓ MIDI再生を中断しました");
     }
 
     Ok(())
