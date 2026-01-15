@@ -187,9 +187,9 @@ mod tests {
         display_midi_progress(300, &interrupt);
         let elapsed = start.elapsed().as_millis();
 
-        // 約150ms付近で終了（100ms~300ms許容）
+        // 約150ms付近で終了（100ms~400ms許容）
         assert!(
-            elapsed >= 100 && elapsed <= 400,
+            (100..=400).contains(&elapsed),
             "Expected ~150ms, got {elapsed}ms"
         );
     }
