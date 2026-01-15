@@ -284,7 +284,7 @@ fn history_logic(db: &db::Database) -> Result<()> {
         ]);
     }
 
-    println!("{table}");
+    output::message(&table.to_string());
     Ok(())
 }
 
