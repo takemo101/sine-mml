@@ -79,9 +79,8 @@ fn test_play_args_conflict() {
 fn test_file_option_parsing() {
     // File option stores path
     let result = Cli::try_parse_from(["sine-mml", "play", "--file", "my_song.mml"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.file, Some("my_song.mml".to_string()));
     assert_eq!(args.mml, None);
@@ -89,9 +88,8 @@ fn test_file_option_parsing() {
 
     // Short flag -f
     let result = Cli::try_parse_from(["sine-mml", "play", "-f", "another.mml"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.file, Some("another.mml".to_string()));
 }
@@ -100,25 +98,22 @@ fn test_file_option_parsing() {
 fn test_waveform_parsing() {
     // Default is sine
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.waveform, Waveform::Sine);
 
     // Explicit sawtooth
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--waveform", "sawtooth"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.waveform, Waveform::Sawtooth);
 
     // Short flag -w
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "-w", "square"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.waveform, Waveform::Square);
 }
@@ -134,9 +129,8 @@ fn test_metronome_beat_valid() {
     for beat in ["4", "8", "16"] {
         let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-beat", beat]);
         assert!(result.is_ok(), "Should accept metronome-beat {beat}");
-        let args = match result.unwrap().command {
-            Command::Play(args) => args,
-            _ => panic!("Unexpected command"),
+        let Command::Play(args) = result.unwrap().command else {
+            panic!("Unexpected command")
         };
         assert_eq!(args.metronome_beat, beat.parse::<u8>().unwrap());
     }
@@ -155,9 +149,8 @@ fn test_metronome_volume_valid() {
     for vol in ["0.0", "0.5", "1.0"] {
         let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--metronome-volume", vol]);
         assert!(result.is_ok(), "Should accept metronome-volume {vol}");
-        let args = match result.unwrap().command {
-            Command::Play(args) => args,
-            _ => panic!("Unexpected command"),
+        let Command::Play(args) = result.unwrap().command else {
+            panic!("Unexpected command")
         };
         assert_eq!(args.metronome_volume, vol.parse::<f32>().unwrap());
     }
@@ -174,9 +167,8 @@ fn test_metronome_volume_out_of_range() {
 #[test]
 fn test_default_values() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.metronome_beat, 4);
     assert_eq!(args.metronome_volume, 0.3);
@@ -188,25 +180,22 @@ fn test_note_option() {
     // With note
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--note", "My melody"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.note, Some("My melody".to_string()));
 
     // Without note
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.note, None);
 
     // Empty note
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--note", ""]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.note, Some(String::new()));
 }
@@ -246,9 +235,8 @@ fn test_validate_note_char_count() {
 fn test_midi_out_option() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--midi-out", "0"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.midi_out, Some("0".to_string()));
 }
@@ -258,9 +246,8 @@ fn test_midi_out_option() {
 fn test_midi_out_with_device_name() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--midi-out", "IAC Driver"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.midi_out, Some("IAC Driver".to_string()));
 }
@@ -269,9 +256,8 @@ fn test_midi_out_with_device_name() {
 #[test]
 fn test_midi_channel_default() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE"]);
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.midi_channel, 1);
 }
@@ -283,9 +269,8 @@ fn test_midi_channel_valid() {
         let result =
             Cli::try_parse_from(["sine-mml", "play", "CDE", "--midi-channel", &ch.to_string()]);
         assert!(result.is_ok(), "Channel {ch} should be valid");
-        let args = match result.unwrap().command {
-            Command::Play(args) => args,
-            _ => panic!("Unexpected command"),
+        let Command::Play(args) = result.unwrap().command else {
+            panic!("Unexpected command")
         };
         assert_eq!(args.midi_channel, ch);
     }
@@ -327,9 +312,8 @@ fn test_midi_combined_options() {
         "10",
     ]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert_eq!(args.midi_out, Some("0".to_string()));
     assert_eq!(args.midi_channel, 10);
@@ -339,9 +323,8 @@ fn test_midi_combined_options() {
 fn test_no_history_long_flag() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--no-history"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert!(args.no_history);
 }
@@ -350,9 +333,8 @@ fn test_no_history_long_flag() {
 fn test_no_history_short_flag() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "-N"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert!(args.no_history);
 }
@@ -361,9 +343,8 @@ fn test_no_history_short_flag() {
 fn test_no_history_default() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert!(!args.no_history);
 }
@@ -374,9 +355,8 @@ fn test_no_history_with_midi_out() {
     let result =
         Cli::try_parse_from(["sine-mml", "play", "CDE", "--midi-out", "0", "--no-history"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert!(args.no_history);
     assert_eq!(args.midi_out, Some("0".to_string()));
@@ -386,9 +366,8 @@ fn test_no_history_with_midi_out() {
 fn test_no_history_with_loop_play() {
     let result = Cli::try_parse_from(["sine-mml", "play", "CDE", "--loop-play", "--no-history"]);
     assert!(result.is_ok());
-    let args = match result.unwrap().command {
-        Command::Play(args) => args,
-        _ => panic!("Unexpected command"),
+    let Command::Play(args) = result.unwrap().command else {
+        panic!("Unexpected command")
     };
     assert!(args.no_history);
     assert!(args.loop_play);
