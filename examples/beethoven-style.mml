@@ -1,0 +1,51 @@
+# Beethoven Style - "Fate Knocks at the Door"
+# Inspired by Symphony No. 5, First Movement
+# Classic "G-G-G-Eb" motif and dramatic development
+
+T108 L8 O4
+
+# === Exposition: The Fate Motif ===
+# Main theme - famous "short-short-short-long" rhythm
+V12
+R4 GGG Eb2&4.
+R4 FFF D2&4.
+
+# Repeat with more intensity
+V14
+R4 GGG Eb2&4
+R4 FFF D2&4
+
+# === Development ===
+# Rising tension - ascending sequence
+V10
+R4 GGG >C2&4
+R4 <AAA >D2&4
+R4 <BBB >E2&4
+
+# Dramatic peak
+V15
+>G4 G4 G4 Eb2.
+R4 F4 F4 D2.
+
+# === Contrasting Lyrical Theme ===
+# Second theme - more melodic and flowing
+T96 L4 O4
+V8
+Eb2 D C2 <Bb
+>C2 D Eb2 R
+
+# Build up again
+V10
+F2 G Ab2 G
+F2 Eb D2 R
+
+# === Recapitulation ===
+# Return of fate motif with full force
+T108 L8 O4
+V13
+R4 GGG Eb2&4.
+R4 FFF D2&4.
+
+# Final statement
+V15
+R4 GGG Eb4 Eb4 Eb4 Eb1

@@ -1,0 +1,72 @@
+# Beethoven Tempest - Furious Storm
+# Inspired by Piano Sonata No. 17 "Tempest" & Appassionata
+# Intense, dramatic, relentless energy
+
+T176 L16 O4
+
+# === Opening Storm ===
+# Rapid arpeggios crashing down
+V15
+>C<BAG FEDC <BAG>C DEFG AB>CD
+EFGA B>CDE <G>CEB <G>CEB <G>CEB
+
+# Thunderous bass rumble
+L8 O3
+V14
+[C C C C <G G G G>]2
+
+# === Furious Main Theme ===
+T184 L16 O4
+V15
+# Relentless driving rhythm
+CDEC CDEC CDEC CDEC
+DFDF DFDF EGEG EGEG
+
+# Explosive ascending run
+L32
+CDEFGAB>CDEFGAB>C4
+L16
+<< R4 CDEFGAB>CDEFGAB>C4
+
+# === Dramatic Middle Section ===
+T160 L8 O4
+V13
+# Dark, brooding chords
+C4 <G4 >Eb4 <G4
+>C4 <G4 >Eb4 <G4
+
+# Sudden sforzando strikes
+V15 L4
+>C R <G R >Eb R <G R
+
+# Building tension
+L16 O4
+V12
+[CDEC DFDF EGEG FAF>C<]2
+
+# === Climactic Storm ===
+T192 L16 O5
+V15
+# Maximum intensity - rapid fire
+CDEFGAB>C <BAGFEDC
+>CDEFGAB>C <<BAGFEDC
+
+# Thunderclaps
+L8 O3
+V15
+C4 R8 C4 R8 C4 R8 C2
+
+# === Relentless Coda ===
+T200 L32 O4
+V14
+# Furious tremolo effect
+[CDCD CDCD CDCD CDCD]2
+[EFEF EFEF EFEF EFEF]2
+[GAB>C <GAB>C <GAB>C <GAB>C]2
+
+# Final explosive cadence
+T176 L4 O3
+V15
+C8 R8 >G8 R8 >C8 R8 <G8 R8
+<<C2 R4 C4
+C1
