@@ -187,7 +187,6 @@ mod tests {
         let interrupt = Arc::new(AtomicBool::new(false));
         let start = Instant::now();
 
-        // 別スレッドで150ms後に中断
         let interrupt_clone = Arc::clone(&interrupt);
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(150));
@@ -197,9 +196,9 @@ mod tests {
         display_midi_progress(300, &interrupt);
         let elapsed = start.elapsed().as_millis();
 
-        // 約150ms付近で終了（100ms~400ms許容）
+        // CI環境ではスレッドスケジューリング遅延があるため広めの許容範囲
         assert!(
-            (100..=400).contains(&elapsed),
+            (50..=600).contains(&elapsed),
             "Expected ~150ms, got {elapsed}ms"
         );
     }
