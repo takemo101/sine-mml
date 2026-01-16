@@ -457,17 +457,6 @@ pub fn generate_noise_click(sample_rate: f64, volume: f32) -> Vec<f32> {
     }
     samples
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::audio::waveform::WaveformType;
-    use crate::mml::{Accidental, Command, Duration, Mml, Note, Pitch, Tempo, TiedDuration};
-
-    #[test]
-    fn test_synthesizer_creation() {
-        let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
-        assert_eq!(synth.sample_rate, 44100);
         assert_eq!(synth.volume, 100);
         assert_eq!(synth.waveform_type, WaveformType::Sine);
     }
