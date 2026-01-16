@@ -1,3 +1,5 @@
+#![allow(clippy::cast_possible_wrap, clippy::field_reassign_with_default)]
+
 use sine_mml::midi::player::{calculate_total_duration_ms, PlaybackState};
 use sine_mml::mml::{
     Accidental, Command, Duration as MmlDuration, Note, Pitch, Rest, TiedDuration, VolumeValue,
