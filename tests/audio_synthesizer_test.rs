@@ -220,9 +220,7 @@ fn test_mix_metronome_16beat_more_clicks() {
 
     assert!(
         nonzero_16beat > nonzero_4beat,
-        "16ビートは4ビートより多くのクリックがあるはず: {} > {}",
-        nonzero_16beat,
-        nonzero_4beat
+        "16ビートは4ビートより多くのクリックがあるはず: {nonzero_16beat} > {nonzero_4beat}",
     );
 }
 
