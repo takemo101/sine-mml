@@ -457,21 +457,6 @@ pub fn generate_noise_click(sample_rate: f64, volume: f32) -> Vec<f32> {
     }
     samples
 }
-        assert_eq!(synth.volume, 100);
-        assert_eq!(synth.waveform_type, WaveformType::Sine);
-    }
-
-    #[test]
-    fn test_synthesize_simple_note() {
-        let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
-        let note = Note {
-            pitch: Pitch::A,
-            accidental: Accidental::Natural,
-            duration: TiedDuration::new(Duration::new(Some(4), 0)), // Quarter note
-        };
-        let mml = Mml {
-            commands: vec![Command::Tempo(Tempo { value: 120 }), Command::Note(note)],
-        };
 
         let samples = synth.synthesize(&mml).expect("Synthesize failed");
         // Quarter note at 120 BPM is 0.5s. 44100 * 0.5 = 22050.
