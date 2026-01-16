@@ -342,7 +342,9 @@ impl Synthesizer {
     }
 }
 
-fn resample_linear(samples: &[f32], target_len: usize) -> Vec<f32> {
+/// Linearly resample audio samples to a target length.
+#[must_use]
+pub fn resample_linear(samples: &[f32], target_len: usize) -> Vec<f32> {
     if samples.is_empty() || target_len == 0 {
         return vec![0.0; target_len];
     }
