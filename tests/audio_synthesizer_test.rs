@@ -592,3 +592,113 @@ fn test_resample_linear_target_zero() {
     let result = resample_linear(&input, 0);
     assert!(result.is_empty());
 }
+
+// ===== Regression Tests for Issue #197: Metronome tempo changes =====
+
+use sine_mml::mml::TempoEvent;
+
+#[test]
+fn test_get_tempo_events_single_tempo() {
+    let mml = Mml {
+        commands: vec![
+            Command::Tempo(Tempo { value: 120 }),
+            Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: TiedDuration::new(Duration::new(Some(4), 0)),
+            }),
+        ],
+    };
+    let events = mml.get_tempo_events(44100);
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].sample_position, 0);
+    assert_eq!(events[0].bpm, 120);
+}
+
+#[test]
+fn test_get_tempo_events_tempo_change_mid_song() {
+    let mml = Mml {
+        commands: vec![
+            Command::Tempo(Tempo { value: 120 }),
+            Command::Note(Note {
+                pitch: Pitch::C,
+                accidental: Accidental::Natural,
+                duration: TiedDuration::new(Duration::new(Some(4), 0)),
+            }),
+            Command::Tempo(Tempo { value: 180 }),
+            Command::Note(Note {
+                pitch: Pitch::D,
+                accidental: Accidental::Natural,
+                duration: TiedDuration::new(Duration::new(Some(4), 0)),
+            }),
+        ],
+    };
+    let events = mml.get_tempo_events(44100);
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].bpm, 120);
+    assert_eq!(events[0].sample_position, 0);
+    assert_eq!(events[1].bpm, 180);
+    assert!(events[1].sample_position > 0);
+}
+
+#[test]
+fn test_get_tempo_events_default_tempo() {
+    let mml = Mml {
+        commands: vec![Command::Note(Note {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            duration: TiedDuration::new(Duration::new(Some(4), 0)),
+        })],
+    };
+    let events = mml.get_tempo_events(44100);
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].bpm, 120);
+}
+
+#[test]
+fn test_mix_metronome_with_tempo_events_single() {
+    let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+    let mut samples = vec![0.0; 44100];
+    let events = vec![TempoEvent {
+        sample_position: 0,
+        bpm: 120,
+    }];
+
+    synth.mix_metronome_with_tempo_events(&mut samples, 44100.0, &events, 4, 0.3);
+    assert_ne!(samples[0], 0.0, "Click at position 0");
+    assert_ne!(samples[22050], 0.0, "Click at 0.5s (120BPM, beat=4)");
+}
+
+#[test]
+fn test_mix_metronome_with_tempo_events_tempo_change() {
+    let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+    let mut samples = vec![0.0; 88200];
+
+    let events = vec![
+        TempoEvent {
+            sample_position: 0,
+            bpm: 60,
+        },
+        TempoEvent {
+            sample_position: 44100,
+            bpm: 120,
+        },
+    ];
+
+    synth.mix_metronome_with_tempo_events(&mut samples, 44100.0, &events, 4, 0.3);
+
+    assert_ne!(samples[0], 0.0, "Click at 0s");
+    assert_ne!(samples[44100], 0.0, "Click at 1s (tempo change point)");
+    assert_ne!(samples[66150], 0.0, "Click at 1.5s (120BPM section)");
+}
+
+#[test]
+fn test_mix_metronome_with_tempo_events_empty() {
+    let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
+    let mut samples = vec![0.5; 1000];
+    let original = samples.clone();
+
+    synth.mix_metronome_with_tempo_events(&mut samples, 44100.0, &[], 4, 0.3);
+
+    assert_eq!(samples, original, "Empty events should not modify samples");
+}

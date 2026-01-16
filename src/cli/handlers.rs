@@ -127,11 +127,11 @@ fn handle_audio_playback(args: &PlayArgs, mml_string: &str, ast: &mml::Mml) -> R
         .context("音声合成に失敗しました")?;
 
     if args.metronome {
-        let bpm = ast.get_tempo();
-        synth.mix_metronome(
+        let tempo_events = ast.get_tempo_events(sample_rate);
+        synth.mix_metronome_with_tempo_events(
             &mut buffer,
             f64::from(sample_rate),
-            bpm,
+            &tempo_events,
             args.metronome_beat,
             args.metronome_volume,
         );

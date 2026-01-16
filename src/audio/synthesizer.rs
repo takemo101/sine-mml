@@ -1,5 +1,5 @@
 use crate::audio::waveform::{create_node, midi_to_frequency, WaveformType};
-use crate::mml::{Command, Mml, Note, VolumeValue};
+use crate::mml::{Command, Mml, Note, TempoEvent, VolumeValue};
 use fundsp::hacker::{highpass_hz, noise};
 use std::error::Error;
 
@@ -230,6 +230,58 @@ impl Synthesizer {
             // 無限ループ防止
             if interval_samples == 0 {
                 break;
+            }
+        }
+    }
+
+    /// テンポ変更に追従するメトロノームをミックス
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    pub fn mix_metronome_with_tempo_events(
+        &self,
+        samples: &mut [f32],
+        sample_rate: f64,
+        tempo_events: &[TempoEvent],
+        beat: u8,
+        volume: f32,
+    ) {
+        if tempo_events.is_empty() {
+            return;
+        }
+
+        let click_samples = generate_noise_click(sample_rate, volume);
+        let total_len = samples.len();
+
+        for (event_idx, event) in tempo_events.iter().enumerate() {
+            let section_start = event.sample_position;
+            let section_end = tempo_events
+                .get(event_idx + 1)
+                .map_or(total_len, |next| next.sample_position);
+
+            if section_start >= total_len {
+                break;
+            }
+
+            let interval_sec = beat_interval_seconds(event.bpm, beat);
+            let interval_samples = (interval_sec * sample_rate as f32) as usize;
+
+            if interval_samples == 0 {
+                continue;
+            }
+
+            let mut position = section_start;
+            while position < section_end && position < total_len {
+                for (i, &click_sample) in click_samples.iter().enumerate() {
+                    let sample_index = position + i;
+                    if sample_index >= total_len {
+                        break;
+                    }
+                    samples[sample_index] += click_sample;
+                }
+                position += interval_samples;
             }
         }
     }
