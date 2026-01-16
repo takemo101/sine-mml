@@ -93,145 +93,162 @@ pub enum ParseError {
     },
 }
 
-impl std::fmt::Display for ParseError {
-    #[allow(clippy::too_many_lines)]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ParseError {
+    fn fmt_token_error(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnexpectedToken {
                 expected,
                 found,
                 position,
-            } => {
-                write!(
-                    f,
-                    "位置 {position}: 期待されたトークン '{expected}' ですが、'{found:?}' が見つかりました"
-                )
-            }
+            } => write!(
+                f,
+                "位置 {position}: 期待されたトークン '{expected}' ですが、'{found:?}' が見つかりました"
+            ),
+            Self::UnexpectedCharacter {
+                character,
+                position,
+            } => write!(f, "位置 {position}: 不明な文字 '{character}' が見つかりました"),
+            Self::UnexpectedEof { expected, position } => write!(
+                f,
+                "位置 {position}: '{expected}' が期待されましたが、入力が終了しました"
+            ),
+            Self::EmptyInput => write!(f, "空のMML文字列が入力されました"),
+            _ => unreachable!(),
+        }
+    }
+
+    fn fmt_number_error(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
             Self::InvalidNumber {
                 value,
                 range,
                 position,
-            } => {
-                write!(
-                    f,
-                    "位置 {position}: 数値 {value} は範囲 {}-{} を超えています",
-                    range.0, range.1
-                )
-            }
-            Self::UnexpectedCharacter {
-                character,
-                position,
-            } => {
-                write!(
-                    f,
-                    "位置 {position}: 不明な文字 '{character}' が見つかりました"
-                )
-            }
-            Self::UnexpectedEof { expected, position } => {
-                write!(
-                    f,
-                    "位置 {position}: '{expected}' が期待されましたが、入力が終了しました"
-                )
-            }
-            Self::EmptyInput => {
-                write!(f, "空のMML文字列が入力されました")
-            }
-            Self::UnmatchedLoopStart { position } => {
-                write!(
-                    f,
-                    "位置 {position}: ループの開始括弧 '[' に対応する ']' がありません"
-                )
-            }
-            Self::UnmatchedLoopEnd { position } => {
-                write!(
-                    f,
-                    "位置 {position}: ループの終了括弧 ']' に対応する '[' がありません"
-                )
-            }
+            } => write!(
+                f,
+                "位置 {position}: 数値 {value} は範囲 {}-{} を超えています",
+                range.0, range.1
+            ),
+            _ => unreachable!(),
+        }
+    }
+
+    fn fmt_loop_error(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnmatchedLoopStart { position } => write!(
+                f,
+                "位置 {position}: ループの開始括弧 '[' に対応する ']' がありません"
+            ),
+            Self::UnmatchedLoopEnd { position } => write!(
+                f,
+                "位置 {position}: ループの終了括弧 ']' に対応する '[' がありません"
+            ),
             Self::InvalidLoopCount {
                 value,
                 range,
                 position,
-            } => {
-                write!(
-                    f,
-                    "位置 {position}: ループ回数 {value} は範囲 {}-{} を超えています",
-                    range.0, range.1
-                )
-            }
-            Self::LoopEscapeOutsideLoop { position } => {
-                write!(
-                    f,
-                    "位置 {position}: 脱出ポイント ':' がループ外で使用されています"
-                )
-            }
-            Self::MultipleEscapePoints { position } => {
-                write!(
-                    f,
-                    "位置 {position}: ループ内に複数の脱出ポイント ':' があります"
-                )
-            }
+            } => write!(
+                f,
+                "位置 {position}: ループ回数 {value} は範囲 {}-{} を超えています",
+                range.0, range.1
+            ),
+            Self::LoopEscapeOutsideLoop { position } => write!(
+                f,
+                "位置 {position}: 脱出ポイント ':' がループ外で使用されています"
+            ),
+            Self::MultipleEscapePoints { position } => write!(
+                f,
+                "位置 {position}: ループ内に複数の脱出ポイント ':' があります"
+            ),
             Self::LoopNestTooDeep {
                 max_depth,
                 position,
-            } => {
-                write!(
-                    f,
-                    "位置 {position}: ループのネストが深すぎます（最大{max_depth}階層）"
-                )
-            }
+            } => write!(
+                f,
+                "位置 {position}: ループのネストが深すぎます（最大{max_depth}階層）"
+            ),
             Self::LoopExpandedTooLarge {
                 max_commands,
                 actual,
-            } => {
-                write!(
-                    f,
-                    "ループ展開後のコマンド数が多すぎます（最大{max_commands}、実際: {actual}）"
-                )
-            }
-            Self::InvalidTieSequence { position } => {
-                write!(
-                    f,
-                    "位置 {position}: タイ記号 '&' の後に有効な音価がありません"
-                )
-            }
+            } => write!(
+                f,
+                "ループ展開後のコマンド数が多すぎます（最大{max_commands}、実際: {actual}）"
+            ),
+            _ => unreachable!(),
+        }
+    }
+
+    fn fmt_tie_error(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidTieSequence { position } => write!(
+                f,
+                "位置 {position}: タイ記号 '&' の後に有効な音価がありません"
+            ),
             Self::TiePitchMismatch {
                 expected,
                 found,
                 position,
-            } => {
-                write!(
-                    f,
-                    "位置 {position}: タイで連結する音符の音高が異なります（期待: {expected}, 実際: {found}）"
-                )
-            }
-            Self::EmptyTieChain { position } => {
-                write!(
-                    f,
-                    "位置 {position}: タイ記号 '&' が音符/休符なしで使用されています"
-                )
-            }
+            } => write!(
+                f,
+                "位置 {position}: タイで連結する音符の音高が異なります（期待: {expected}, 実際: {found}）"
+            ),
+            Self::EmptyTieChain { position } => write!(
+                f,
+                "位置 {position}: タイ記号 '&' が音符/休符なしで使用されています"
+            ),
+            _ => unreachable!(),
+        }
+    }
+
+    fn fmt_tuplet_error(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
             Self::UnclosedTuplet { position } => {
                 write!(f, "位置 {position}: 連符の閉じ括弧 '}}' がありません")
             }
             Self::TupletCountMissing { position } => {
                 write!(f, "位置 {position}: 連符数が指定されていません")
             }
-            Self::InvalidTupletCount { count, position } => {
-                write!(
-                    f,
-                    "位置 {position}: 無効な連符数です（2以上を指定してください）: {count}"
-                )
-            }
+            Self::InvalidTupletCount { count, position } => write!(
+                f,
+                "位置 {position}: 無効な連符数です（2以上を指定してください）: {count}"
+            ),
             Self::TupletNestTooDeep {
                 max_depth,
                 position,
-            } => {
-                write!(
-                    f,
-                    "位置 {position}: 連符のネストが深すぎます（最大{max_depth}階層）"
-                )
-            }
+            } => write!(
+                f,
+                "位置 {position}: 連符のネストが深すぎます（最大{max_depth}階層）"
+            ),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedToken { .. }
+            | Self::UnexpectedCharacter { .. }
+            | Self::UnexpectedEof { .. }
+            | Self::EmptyInput => self.fmt_token_error(f),
+
+            Self::InvalidNumber { .. } => self.fmt_number_error(f),
+
+            Self::UnmatchedLoopStart { .. }
+            | Self::UnmatchedLoopEnd { .. }
+            | Self::InvalidLoopCount { .. }
+            | Self::LoopEscapeOutsideLoop { .. }
+            | Self::MultipleEscapePoints { .. }
+            | Self::LoopNestTooDeep { .. }
+            | Self::LoopExpandedTooLarge { .. } => self.fmt_loop_error(f),
+
+            Self::InvalidTieSequence { .. }
+            | Self::TiePitchMismatch { .. }
+            | Self::EmptyTieChain { .. } => self.fmt_tie_error(f),
+
+            Self::UnclosedTuplet { .. }
+            | Self::TupletCountMissing { .. }
+            | Self::InvalidTupletCount { .. }
+            | Self::TupletNestTooDeep { .. } => self.fmt_tuplet_error(f),
         }
     }
 }
