@@ -20,6 +20,7 @@ fn test_synthesizer_creation() {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn test_synthesize_simple_note() {
     let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
     let note = Note {
