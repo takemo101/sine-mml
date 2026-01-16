@@ -3,6 +3,15 @@ pub struct Mml {
     pub commands: Vec<Command>,
 }
 
+/// テンポ変更イベント（サンプル位置とBPM値のペア）
+#[derive(Debug, Clone, PartialEq)]
+pub struct TempoEvent {
+    /// サンプル位置（0始まり）
+    pub sample_position: usize,
+    /// BPM値
+    pub bpm: u16,
+}
+
 impl Mml {
     /// MMLコマンドから最初に設定されたテンポを取得する。
     /// Tempoコマンドがない場合はデフォルトの120を返す。
@@ -14,6 +23,132 @@ impl Mml {
             }
         }
         120
+    }
+
+    /// MMLコマンドからテンポ変更イベントのリストを取得する。
+    /// 各イベントには、テンポ変更が発生するサンプル位置とBPM値が含まれる。
+    /// 最初のイベントは常にサンプル位置0で、初期テンポ（最初のTempoコマンドまたはデフォルト120）。
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    pub fn get_tempo_events(&self, sample_rate: u32) -> Vec<TempoEvent> {
+        let mut events = Vec::new();
+        let mut default_length: u8 = 4;
+        let mut current_sample: usize = 0;
+
+        let initial_bpm = self.get_tempo();
+        events.push(TempoEvent {
+            sample_position: 0,
+            bpm: initial_bpm,
+        });
+        let mut current_bpm = initial_bpm;
+
+        for command in &self.commands {
+            match command {
+                Command::Note(note) => {
+                    let duration_sec = note.duration_in_seconds(current_bpm, default_length);
+                    let num_samples = (f64::from(duration_sec) * f64::from(sample_rate)) as usize;
+                    current_sample += num_samples;
+                }
+                Command::Rest(rest) => {
+                    let duration_sec = rest.duration_in_seconds(current_bpm, default_length);
+                    let num_samples = (f64::from(duration_sec) * f64::from(sample_rate)) as usize;
+                    current_sample += num_samples;
+                }
+                Command::Tempo(t) => {
+                    // 最初のテンポコマンドは既にevents[0]に含まれているのでスキップ
+                    if current_sample > 0 || t.value != initial_bpm {
+                        // 位置0で初期テンポと同じ場合は重複を避ける
+                        if current_sample > 0 {
+                            events.push(TempoEvent {
+                                sample_position: current_sample,
+                                bpm: t.value,
+                            });
+                        }
+                    }
+                    current_bpm = t.value;
+                }
+                Command::DefaultLength(l) => {
+                    default_length = l.value;
+                }
+                Command::Tuplet {
+                    commands: tuplet_commands,
+                    count,
+                    base_duration,
+                } => {
+                    let tuplet_samples = Self::calculate_tuplet_samples(
+                        tuplet_commands,
+                        *count,
+                        *base_duration,
+                        current_bpm,
+                        default_length,
+                        sample_rate,
+                    );
+                    current_sample += tuplet_samples;
+                }
+                Command::Octave(_)
+                | Command::OctaveUp
+                | Command::OctaveDown
+                | Command::Volume(_)
+                | Command::Loop { .. } => {}
+            }
+        }
+
+        events
+    }
+
+    /// 連符内のコマンドの合計サンプル数を計算
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    fn calculate_tuplet_samples(
+        commands: &[Command],
+        count: u8,
+        base_duration: Option<u8>,
+        bpm: u16,
+        default_length: u8,
+        sample_rate: u32,
+    ) -> usize {
+        let base = base_duration.unwrap_or(default_length);
+        let base_seconds = 60.0 / f32::from(bpm) * 4.0 / f32::from(base);
+        let tuplet_duration = base_seconds / f32::from(count);
+
+        let mut total_samples = 0usize;
+        for cmd in commands {
+            match cmd {
+                Command::Note(note) => {
+                    let note_duration =
+                        if note.duration.base.value.is_some() || note.duration.has_ties() {
+                            note.duration_in_seconds(bpm, default_length) / f32::from(count)
+                        } else {
+                            tuplet_duration
+                        };
+                    total_samples += (f64::from(note_duration) * f64::from(sample_rate)) as usize;
+                }
+                Command::Rest(rest) => {
+                    let rest_duration =
+                        if rest.duration.base.value.is_some() || rest.duration.has_ties() {
+                            rest.duration_in_seconds(bpm, default_length) / f32::from(count)
+                        } else {
+                            tuplet_duration
+                        };
+                    total_samples += (f64::from(rest_duration) * f64::from(sample_rate)) as usize;
+                }
+                Command::Tuplet {
+                    commands: nested_cmds,
+                    count: nested_count,
+                    base_duration: nested_base,
+                } => {
+                    total_samples += Self::calculate_tuplet_samples(
+                        nested_cmds,
+                        *nested_count,
+                        *nested_base,
+                        bpm,
+                        default_length,
+                        sample_rate,
+                    );
+                }
+                _ => {}
+            }
+        }
+        total_samples
     }
 }
 
