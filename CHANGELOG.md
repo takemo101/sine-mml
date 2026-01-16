@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-01-16
+
+### Fixed
+
+- メトロノームがMML内のテンポ変更に追従するよう修正 (#197)
+  - `T120 CDEF T180 GHAB` のようにテンポを途中で変更した場合、メトロノームのクリック間隔も追従
+
+### Added
+
+- MMLサンプルファイル追加
+  - `examples/beethoven-style.mml` - ベートーヴェン交響曲第5番風
+  - `examples/beethoven-tempest.mml` - 激しいテンペスト風
+  - `examples/chopin-2026.mml` - 現代のショパン風ノクターン
+
 ## [0.2.0] - 2026-01-16
 
 ### Added
