@@ -90,6 +90,7 @@ fn test_normalize_single_sample_exceeding() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_normalize_single_sample_within_range() {
     let mut samples = vec![0.5];
     normalize_samples(&mut samples);
@@ -178,6 +179,7 @@ fn test_beat_interval_invalid_beat() {
 
 // mix_metronome tests (Issue #31)
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_mix_metronome_click_positions() {
     let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
     let mut samples = vec![0.0; 44100]; // 1秒分
