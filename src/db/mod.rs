@@ -340,12 +340,17 @@ mod tests {
     #[test]
     fn test_list_returns_descending_order() {
         let db = Database::open_in_memory().unwrap();
-        let entry1 = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 120, None);
-        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
 
+        // Entry1を作成・保存
+        let entry1 = HistoryEntry::new("C".to_string(), Waveform::Sine, 0.5, 120, None);
         db.save(&entry1).unwrap();
-        // SQLite CURRENT_TIMESTAMP is second-precision; need 1s+ for reliable ordering
-        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        // created_atはHistoryEntry::new()で設定されるため、
+        // entry2を作成する前にsleepする必要がある
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        // Entry2を作成・保存（この時点でcreated_atが設定される）
+        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
         db.save(&entry2).unwrap();
 
         let list = db.list(None).unwrap();
@@ -357,6 +362,7 @@ mod tests {
     #[test]
     fn test_list_includes_note() {
         let db = Database::open_in_memory().unwrap();
+
         let entry1 = HistoryEntry::new(
             "C".to_string(),
             Waveform::Sine,
@@ -364,10 +370,11 @@ mod tests {
             120,
             Some("Note 1".to_string()),
         );
-        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
-
         db.save(&entry1).unwrap();
-        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        let entry2 = HistoryEntry::new("D".to_string(), Waveform::Square, 0.6, 130, None);
         db.save(&entry2).unwrap();
 
         let list = db.list(None).unwrap();
