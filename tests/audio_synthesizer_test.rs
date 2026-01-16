@@ -8,8 +8,7 @@ use sine_mml::audio::synthesizer::{
 };
 use sine_mml::audio::waveform::WaveformType;
 use sine_mml::mml::{
-    Accidental, Command, Duration, Mml, Note, Pitch, Rest, Tempo, TiedDuration, Volume,
-    VolumeValue,
+    Accidental, Command, Duration, Mml, Note, Pitch, Rest, Tempo, TiedDuration, Volume, VolumeValue,
 };
 
 #[test]
