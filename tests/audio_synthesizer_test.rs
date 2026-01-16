@@ -356,6 +356,7 @@ fn test_default_velocity_is_10() {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn test_synthesize_tuplet_3_notes() {
     let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
     let mml = Mml {
