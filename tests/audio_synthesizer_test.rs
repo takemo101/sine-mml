@@ -442,6 +442,7 @@ fn test_synthesize_tuplet_with_base_duration() {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn test_synthesize_tuplet_with_rest() {
     let mut synth = Synthesizer::new(44100, 100, WaveformType::Sine);
     let mml = Mml {
