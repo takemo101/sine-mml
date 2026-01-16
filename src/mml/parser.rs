@@ -607,7 +607,8 @@ impl Parser {
         }
     }
 
-    fn advance(&mut self) -> &TokenWithPos {
+    /// Advance to the next token and return the previous one
+    pub fn advance(&mut self) -> &TokenWithPos {
         if !self.is_at_end() {
             self.current += 1;
         }
