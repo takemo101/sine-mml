@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-01-16
+
+### Added
+
+- **MIDIストリーミング** (`--midi-out`, `--midi-channel`, `--midi-list`)
+  - 外部MIDIデバイス/DAWへリアルタイム送信
+  - MIDIチャンネル選択（1-16）
+  - デバイス一覧表示（`midi list`サブコマンド対応）
+  - ドリフトフリーの "Next Event Time" タイミング
+  - Ctrl-C割り込み時のAll Notes Off送信
+- **MIDIループ再生** (`--loop-play`オプション併用)
+  - MIDI出力でのループ再生対応
+- **MIDIプログレスバー**
+  - MIDI出力時の進捗表示
+- **`--no-history / -N`オプション**
+  - 履歴保存をスキップ
+- **連符（n連符）** (`{...}n` 構文)
+  - 複数音符を指定拍に均等配分
+  - ベース音長指定対応（`{...}n:m`）
+  - ネスト対応（最大5階層）
+- **`midi list`サブコマンド**
+  - MMLなしでMIDIデバイス一覧表示
+
+### Changed
+
+- テスト分離によるコード品質向上
+  - parser.rs, synthesizer.rs, ast.rs, player.rs, message.rs, mod.rs
+  - 各ファイルを500行以下に削減
+
+### Fixed
+
+- flakyテストの安定化（MIDI progress, db tests）
+
 ## [0.1.1] - 2026-01-12
 
 ### Added
@@ -154,5 +187,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Justfile with common tasks (build, test, lint, demo)
   - CI workflow configuration
 
+[0.2.0]: https://github.com/takemo101/sine-mml/releases/tag/v0.2.0
 [0.1.1]: https://github.com/takemo101/sine-mml/releases/tag/v0.1.1
 [0.1.0]: https://github.com/takemo101/sine-mml/releases/tag/v0.1.0
