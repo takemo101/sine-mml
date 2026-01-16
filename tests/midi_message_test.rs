@@ -284,8 +284,7 @@ fn test_volume_to_velocity_full_table() {
         let actual = mml_volume_to_velocity(vol);
         assert_eq!(
             actual, expected_vel,
-            "V{} should map to velocity {}, got {}",
-            vol, expected_vel, actual
+            "V{vol} should map to velocity {expected_vel}, got {actual}"
         );
     }
 }
