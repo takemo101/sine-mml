@@ -48,7 +48,7 @@ pub fn midi_handler(args: MidiArgs) -> Result<()> {
 fn handle_midi_output(
     device: &str,
     channel: u8,
-    mml_string: &str,
+    _mml_string: &str,
     ast: &mml::Mml,
     loop_play: bool,
 ) -> Result<()> {
