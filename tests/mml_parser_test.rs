@@ -663,7 +663,7 @@ fn parse_nested_loop_zero_count_error() {
             assert_eq!(value, 0);
             assert_eq!(range, (1, 99));
         }
-        _ => panic!("Expected InvalidLoopCount, got {:?}", err),
+        _ => panic!("Expected InvalidLoopCount, got {err:?}"),
     }
 }
 
@@ -812,7 +812,7 @@ fn parse_note_empty_tie_error() {
     let err = parse(input).unwrap_err();
     match err {
         ParseError::EmptyTieChain { .. } => {}
-        _ => panic!("Expected EmptyTieChain error, got {:?}", err),
+        _ => panic!("Expected EmptyTieChain error, got {err:?}"),
     }
 }
 
@@ -823,7 +823,7 @@ fn parse_note_tie_followed_by_note() {
     let err = parse(input).unwrap_err();
     match err {
         ParseError::EmptyTieChain { .. } => {}
-        _ => panic!("Expected EmptyTieChain error, got {:?}", err),
+        _ => panic!("Expected EmptyTieChain error, got {err:?}"),
     }
 }
 
@@ -868,7 +868,7 @@ fn parse_rest_empty_tie_error() {
     let err = parse(input).unwrap_err();
     match err {
         ParseError::EmptyTieChain { .. } => {}
-        _ => panic!("Expected EmptyTieChain error, got {:?}", err),
+        _ => panic!("Expected EmptyTieChain error, got {err:?}"),
     }
 }
 
@@ -969,7 +969,7 @@ fn parse_tuplet_count_missing_error() {
     let err = parse("{CDE}").unwrap_err();
     match err {
         ParseError::TupletCountMissing { .. } => {}
-        _ => panic!("Expected TupletCountMissing, got {:?}", err),
+        _ => panic!("Expected TupletCountMissing, got {err:?}"),
     }
 }
 
@@ -981,7 +981,7 @@ fn parse_tuplet_invalid_count_1() {
         ParseError::InvalidTupletCount { count, .. } => {
             assert_eq!(count, 1);
         }
-        _ => panic!("Expected InvalidTupletCount, got {:?}", err),
+        _ => panic!("Expected InvalidTupletCount, got {err:?}"),
     }
 }
 
@@ -993,7 +993,7 @@ fn parse_tuplet_invalid_count_0() {
         ParseError::InvalidTupletCount { count, .. } => {
             assert_eq!(count, 0);
         }
-        _ => panic!("Expected InvalidTupletCount, got {:?}", err),
+        _ => panic!("Expected InvalidTupletCount, got {err:?}"),
     }
 }
 
@@ -1003,7 +1003,7 @@ fn parse_tuplet_unclosed_error() {
     let err = parse("{CDE").unwrap_err();
     match err {
         ParseError::UnclosedTuplet { .. } => {}
-        _ => panic!("Expected UnclosedTuplet, got {:?}", err),
+        _ => panic!("Expected UnclosedTuplet, got {err:?}"),
     }
 }
 
@@ -1103,7 +1103,7 @@ fn parse_tuplet_nest_6_levels_error() {
         ParseError::TupletNestTooDeep { max_depth, .. } => {
             assert_eq!(max_depth, 5);
         }
-        _ => panic!("Expected TupletNestTooDeep, got {:?}", err),
+        _ => panic!("Expected TupletNestTooDeep, got {err:?}"),
     }
 }
 
@@ -1185,7 +1185,7 @@ fn parse_tuplet_end_without_start() {
     let err = parse("}3").unwrap_err();
     match err {
         ParseError::UnexpectedToken { .. } => {}
-        _ => panic!("Expected UnexpectedToken, got {:?}", err),
+        _ => panic!("Expected UnexpectedToken, got {err:?}"),
     }
 }
 
