@@ -656,6 +656,7 @@ fn test_get_tempo_events_default_tempo() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_mix_metronome_with_tempo_events_single() {
     let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
     let mut samples = vec![0.0; 44100];
@@ -670,6 +671,7 @@ fn test_mix_metronome_with_tempo_events_single() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_mix_metronome_with_tempo_events_tempo_change() {
     let synth = Synthesizer::new(44100, 100, WaveformType::Sine);
     let mut samples = vec![0.0; 88200];
