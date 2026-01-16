@@ -66,7 +66,6 @@ fn handle_midi_output(
     .context("Ctrl+Cハンドラーの設定に失敗しました")?;
 
     output::info("MIDI再生中... (Ctrl+Cで停止)");
-    output::message_indent(&format!("MML: {}", truncate_mml(mml_string, 50)));
     output::message_indent(&format!("デバイス: {device}"));
     output::message_indent(&format!("チャンネル: {channel}"));
 
