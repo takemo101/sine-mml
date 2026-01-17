@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-01-17
+
+### Fixed
+
+- `--version`オプションがCargo.tomlのバージョンを自動取得するよう修正 (#201)
+  - 従来はハードコードされた"0.1.0"が表示されていた問題を修正
+
 ## [0.2.2] - 2026-01-17
 
 ### Fixed
