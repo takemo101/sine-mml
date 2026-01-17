@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(name = "sine-mml")]
-#[command(version = "0.1.0")]
+#[command(version)]
 #[command(about = "MML Synthesizer CLI", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
